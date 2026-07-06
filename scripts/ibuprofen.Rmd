@@ -1,0 +1,67 @@
+---
+title: "ibuprofen"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(here)
+library(rworldmap)
+library(sf)
+library(rnaturalearth)
+library(ggplot2)
+library(leaflet)
+```
+
+```{r}
+#read in the dataset
+ibuprofen <- read.csv(here("data", "ibuprofen.csv"))
+```
+
+```{r}
+#filter so that i only include data from 2011
+ibuprofen %>% filter(year == 2011)
+
+#extract the coordinate columns
+ibuprofen_coords <- data.frame(
+  lon = ibuprofen$Longitude,
+  lat = ibuprofen$Latitude
+)
+#convert coordinates to spatial features (sf) object for GIS operations
+ibuprofen_sf <- st_as_sf(
+  ibuprofen_coords,
+  coords = c("lon", "lat"),
+  crs = 4326
+)
+
+```
+
+```{r}
+#ok this plots the occurance of ibuprofen in 2011
+world <- ne_countries(returnclass = "sf")
+
+plot(st_geometry(world),
+     xlim = c(-8, 2),
+     ylim = c(49, 61),
+     col = "lightgrey")
+
+plot(st_geometry(ibuprofen_sf),
+     add = TRUE,
+     col = "red",
+     pch = 16)
+
+#ok but this map is really ugly, let's use leaflet to make a prettier map
+```
+
+```{r}
+#map using leaflet - this is a prettier map than before
+leaflet(ibuprofen_sf) |>
+  addProviderTiles(providers$CartoDB.Positron) |>
+  addCircleMarkers(
+    radius = 4,
+    color = "red"
+  )
+
+
+```
+

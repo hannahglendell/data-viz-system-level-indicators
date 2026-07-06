@@ -1,0 +1,111 @@
+---
+title: "extracting site rainfall data"
+output: html_document
+---
+
+```{r}
+library(terra)
+library(sf)
+library(dplyr)
+library(purrr)
+library(here)
+library(stringr)
+```
+
+
+```{r}
+#read in the met office 1km daily rainfall dataset for 2024
+#there is a separate dataset for each month
+
+jan_2024 <- rast(here( "data", "daily_rainfall_1km", "2024", "Jan_2024.nc"))
+```
+
+
+```{r}
+#read in the dataframe of unique sites
+unique_sites <- st_read(here("data", "imidacloprid sites", "unique_sites.gpkg"))
+
+#transform the cordinate reference system of the unique sites to the same system used by the rainfall raster
+unique_sites <- st_transform(unique_sites, crs(jan_2024))
+
+#convert the points into a spatvector
+sites_vect <- terra::vect(unique_sites)
+
+#extract rainfall
+jan_rain <- terra::extract(jan_2024, sites_vect)                          
+                          
+#join back onto the site IDs
+jan_rain <- bind_cols(
+  st_drop_geometry(unique_sites),
+  jan_rain |> select(-ID)
+)
+```
+```{r}
+#write a function to extract the daily rainfall for each month
+extract_daily_rainfall <- function(sites, nc_dir) {
+
+  # Find all monthly NetCDF files
+  nc_files <- list.files(
+    nc_dir,
+    pattern = "\\.nc$",
+    full.names = TRUE
+  )
+
+  nc_files <- sort(nc_files)
+
+  # Match CRS to first raster
+  r <- rast(nc_files[1])
+
+  if (st_crs(sites)$wkt != crs(r)) {
+    sites <- st_transform(sites, crs(r))
+  }
+
+  sites_vect <- terra::vect(sites)
+
+  rainfall_list <- map(nc_files, function(f) {
+
+    r <- rast(f)
+
+    # Extract values
+    vals <- terra::extract(r, sites_vect) |>
+      select(-ID)
+
+    # Get year and month from filename
+    fname <- basename(f)
+
+    year <- str_extract(fname, "\\d{4}")
+
+    month <- str_extract(
+      fname,
+      "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec"
+    )
+
+    month_num <- match(
+      month,
+      month.abb
+    )
+
+    # Rename columns to dates
+    names(vals) <- seq.Date(
+      as.Date(sprintf("%s-%02d-01", year, month_num)),
+      by = "day",
+      length.out = ncol(vals)
+    )
+
+    vals
+  })
+
+  bind_cols(
+    st_drop_geometry(sites),
+    bind_cols(rainfall_list)
+  )
+}
+```
+
+```{r}
+#now use this function to extract the daily rainfall
+rainfall_2024 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2024"))
+
+saveRDS(rainfall_2024,here("data", "daily_rainfall_1km", "rainfall_2024.rds"))
+```
+
