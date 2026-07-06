@@ -265,6 +265,7 @@ legend_html_colour <- paste0(
 ```
 
 
+this app has the new legend and just concentration, no rainfall
 
 ```{r} 
 
@@ -380,7 +381,7 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 ```
 
-This one has rainfall added
+This one has rainfall added and the old legend
 
 ```{r}  
 
