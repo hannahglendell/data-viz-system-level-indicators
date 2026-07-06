@@ -37,29 +37,15 @@ imidacloprid$year <- as.integer(imidacloprid$year)
 #store datetime as datetime
 imidacloprid$Sample_datetime <- ymd_hms(imidacloprid$Sample_datetime)
 
-
-
-
-
 ```
 
 ```{r}
-#read in the rainfall dataset for 2025
-rainfall_2024 <- readRDS(
-  here("data", "daily_rainfall_1km", "rainfall_2024.rds")
-)
+#read in the rainfall dataset
+rainfall <- read.csv(here("data", "daily_rainfall_1km", "rainfall.csv"))
 
-#convert rainfall to long format
-rainfall_long <- rainfall_2024 %>%
-  tidyr::pivot_longer(
-    -Sample_Site_ID,
-    names_to = "date",
-    values_to = "rainfall"
-  ) %>%
-  mutate(date = as.Date(date))
+#save the date as a date format
+rainfall$date <- as.Date(rainfall$date)
 ```
-
-
 
 
 ```{r}
@@ -280,7 +266,7 @@ ui <- fluidPage(
 
     column(
       width = 5,
-      plotlyOutput("timeseries", height = 500)
+      plotlyOutput("timeseries", height = 700)
     )
   )
 )
@@ -338,7 +324,7 @@ server <- function(input, output, session) {
 
   req(selected_site())
 
-  dat <- rainfall_long %>%
+  dat <- rainfall %>%
     filter(Sample_Site_ID == selected_site()) %>%
     arrange(date)
 
@@ -401,7 +387,7 @@ server <- function(input, output, session) {
     p_conc,
     nrows = 2,
     shareX = TRUE,
-    heights = c(0.3, 0.7),
+    heights = c(0.5, 0.5),
     titleY = TRUE
   ) %>%
     layout(

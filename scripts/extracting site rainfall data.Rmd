@@ -91,28 +91,85 @@ extract_daily_rainfall <- function(sites, nc_dir) {
       by = "day",
       length.out = ncol(vals)
     )
-
     vals
   })
 
+  
   bind_cols(
     st_drop_geometry(sites),
     bind_cols(rainfall_list)
   )
+ 
+ 
 }
 ```
 
 ```{r}
 #now use this function to extract the daily rainfall for 2024
-rainfall_2024 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2024"))
+#rainfall_2024 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2024"))
 
-saveRDS(rainfall_2024,here("data", "daily_rainfall_1km", "rainfall_2024.rds"))
+#saveRDS(rainfall_2024,here("data", "daily_rainfall_1km", "rainfall_2024.rds"))
 ```
 
 ```{r}
 #now use this function to extract the daily rainfall for 2023
-rainfall_2023 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2023"))
+#rainfall_2023 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2023"))
 
-saveRDS(rainfall_2023,here("data", "daily_rainfall_1km", "rainfall_2023.rds"))
+#saveRDS(rainfall_2023,here("data", "daily_rainfall_1km", "rainfall_2023.rds"))
+```
+
+```{r}
+#now use this function to extract the daily rainfall for 2022
+#rainfall_2022 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2022"))
+
+#saveRDS(rainfall_2022,here("data", "daily_rainfall_1km", "rainfall_2022.rds"))
+```
+
+```{r}
+#now read in each dataset
+rainfall_2024 <- readRDS(here("data", "daily_rainfall_1km", "rainfall_2024.rds"))
+
+rainfall_2023 <- readRDS(here("data", "daily_rainfall_1km", "rainfall_2023.rds"))
+
+rainfall_2022 <- readRDS(here("data", "daily_rainfall_1km", "rainfall_2022.rds"))
+
+
+#convert each dataset to long format
+rainfall_long_2024 <- rainfall_2024 %>%
+  tidyr::pivot_longer(
+    -Sample_Site_ID,
+    names_to = "date",
+    values_to = "rainfall"
+  ) %>%
+  mutate(date = as.Date(date))
+
+rainfall_long_2023 <- rainfall_2023 %>%
+  tidyr::pivot_longer(
+    -Sample_Site_ID,
+    names_to = "date",
+    values_to = "rainfall"
+  ) %>%
+  mutate(date = as.Date(date))
+
+rainfall_long_2022 <- rainfall_2022 %>%
+  tidyr::pivot_longer(
+    -Sample_Site_ID,
+    names_to = "date",
+    values_to = "rainfall"
+  ) %>%
+  mutate(date = as.Date(date))
+
+
+#then stack them on top of eachother using bind_rows()
+rainfall <- bind_rows(rainfall_long_2024, rainfall_long_2023, rainfall_long_2022)
+
+#then save as a csv file
+write.csv(
+  rainfall,
+  here("data", "daily_rainfall_1km", "rainfall.csv"),
+  row.names = FALSE
+)
+
+here()
 ```
 
