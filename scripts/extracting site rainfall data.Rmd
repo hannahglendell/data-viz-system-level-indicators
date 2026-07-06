@@ -9,7 +9,7 @@ library(sf)
 library(dplyr)
 library(purrr)
 library(here)
-library(stringr)
+library(stringr) 
 ```
 
 
@@ -25,20 +25,20 @@ jan_2024 <- rast(here( "data", "daily_rainfall_1km", "2024", "Jan_2024.nc"))
 #read in the dataframe of unique sites
 unique_sites <- st_read(here("data", "imidacloprid sites", "unique_sites.gpkg"))
 
-#transform the cordinate reference system of the unique sites to the same system used by the rainfall raster
+#transform the coordinate reference system of the unique sites to the same system used by the rainfall raster
 unique_sites <- st_transform(unique_sites, crs(jan_2024))
 
 #convert the points into a spatvector
 sites_vect <- terra::vect(unique_sites)
 
 #extract rainfall
-jan_rain <- terra::extract(jan_2024, sites_vect)                          
+#jan_rain <- terra::extract(jan_2024, sites_vect)                          
                           
 #join back onto the site IDs
-jan_rain <- bind_cols(
-  st_drop_geometry(unique_sites),
-  jan_rain |> select(-ID)
-)
+#jan_rain <- bind_cols(
+  #st_drop_geometry(unique_sites),
+  #jan_rain |> select(-ID)
+#)
 ```
 ```{r}
 #write a function to extract the daily rainfall for each month
@@ -103,9 +103,16 @@ extract_daily_rainfall <- function(sites, nc_dir) {
 ```
 
 ```{r}
-#now use this function to extract the daily rainfall
+#now use this function to extract the daily rainfall for 2024
 rainfall_2024 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2024"))
 
 saveRDS(rainfall_2024,here("data", "daily_rainfall_1km", "rainfall_2024.rds"))
+```
+
+```{r}
+#now use this function to extract the daily rainfall for 2023
+rainfall_2023 <- extract_daily_rainfall(unique_sites,here("data", "daily_rainfall_1km", "2023"))
+
+saveRDS(rainfall_2023,here("data", "daily_rainfall_1km", "rainfall_2023.rds"))
 ```
 
