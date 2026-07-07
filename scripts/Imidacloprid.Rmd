@@ -376,20 +376,20 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 ```
 
-This one has rainfall added and the old legend
+This one has rainfall added and the old legend (the points are scaled by number of observations)
 
 ```{r}  
 
 ui <- fluidPage(
 
   titlePanel("Imidacloprid Concentrations"),
-
+#controls the size of the left-hand column, which shows the map
   fluidRow(
     column(
       width = 7,
       leafletOutput("map", height = 500)
     ),
-
+#controls the size of the right-hand column, which shows the timeseries plots
     column(
       width = 5,
       plotlyOutput("timeseries", height = 700)
@@ -541,7 +541,7 @@ ui <- fluidPage(
     column(
       width = 5,
       plotlyOutput("timeseries", height = 700),
-     checkboxInput(
+     checkboxInput(        #add a checkbox for MAc-EQS
   "show_mac_eqs",
   HTML(
     "Show MAC-EQS (0.057 µg/L)<br>
@@ -553,7 +553,7 @@ ui <- fluidPage(
 ),
 
 checkboxInput(
-  "show_aa_eqs",
+  "show_aa_eqs",       #add a checkbox for AA-EQS
   HTML(
     "Show AA-EQS (0.0068 µg/L)<br>
     <span style='font-size:90%; color:#666;'>
@@ -632,6 +632,7 @@ leafletProxy("map", data = site_summaries) %>%
 
   req(selected_site())
 
+   #make the rainfall plot for the selected site
   p_rain <- plot_ly(
     data = rain_data(),
     x = ~date,
@@ -648,7 +649,7 @@ leafletProxy("map", data = site_summaries) %>%
     layout(
       yaxis = list(title = "Rainfall (mm)")
     )
-
+#make a concentration plot for the selected site
  p_conc <- plot_ly(
   data = site_data(),
   x = ~Sample_datetime,
@@ -682,7 +683,8 @@ annotations <- list()
 
 # MAC-EQS
 if (input$show_mac_eqs) {
-
+  
+#plots the line
   shapes <- append(shapes, list(
     list(
       type = "line",
@@ -698,7 +700,8 @@ if (input$show_mac_eqs) {
       )
     )
   ))
-
+  
+#adds an annotation to the line
   annotations <- append(annotations, list(
     list(
       x = 0.98,
@@ -716,6 +719,7 @@ if (input$show_mac_eqs) {
 # AA-EQS
 if (input$show_aa_eqs) {
 
+  #plots the line, in green
   shapes <- append(shapes, list(
     list(
       type = "line",
@@ -732,6 +736,7 @@ if (input$show_aa_eqs) {
     )
   ))
 
+  #adds an annotation to the line
   annotations <- append(annotations, list(
     list(
       x = 0.98,
@@ -746,7 +751,7 @@ if (input$show_aa_eqs) {
   ))
 }
 
-# Apply both (if present)
+# Apply both lines if both boxes are ticked
 p_conc <- p_conc %>%
   layout(
     shapes = shapes,
@@ -754,12 +759,7 @@ p_conc <- p_conc %>%
   )
 
   
-  
-  
-  
-  
-  
-
+#adds the vertical line to scroll along the x-axis
   subplot(
     p_rain,
     p_conc,
@@ -778,6 +778,7 @@ p_conc <- p_conc %>%
 
 }
 
+#display the shiny app
 shinyApp(ui, server)
 ```
 
