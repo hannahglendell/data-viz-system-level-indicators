@@ -7,17 +7,92 @@ output: html_document
 library(readxl)
 library(dplyr)
 library(purrr)
+library(here)
+library(ggplot2)
+library(hrbrthemes)
+library(RColorBrewer)
+library(lubridate)
 ```
 
 ```{r}
-#to find out which sheets have data on the site WAV120
-
+#read in the excel spreadsheet
 file <- here("data", "Pharmaceuticals infomation_V3.xlsx")
 
+#to find out which sheets have data on the site WAV120
 excel_sheets(file) %>%
   keep(~{
     dat <- read_excel(file, sheet = .x)
     "WAV120" %in% dat$Sample_Site_ID
   })
+
+#store these sheets that have data on WAV120 in an object called site_sheets
+site_sheets <- excel_sheets(file) %>%
+  keep(~{
+    dat <- read_excel(file, sheet = .x)
+    "WAV120" %in% dat$Sample_Site_ID
+  })
+```
+
+
+```{r}
+#get all data from a specific site
+
+#specify which columns i want
+cols <- c(
+  "Sample_Site_ID",
+  "Sample_datetime",
+  "Compound_Name",
+  "Concentration",
+  "unit",
+  "year"
+)
+
+
+#extract all the data for those columns
+wav120_data <- map_dfr(site_sheets, ~{
+
+  read_excel(file, sheet = .x) %>%
+    select(any_of(cols)) %>%
+    filter(Sample_Site_ID == "WAV120") %>%
+    mutate(
+      Sample_datetime = as.POSIXct(Sample_datetime), #ensure that datetime is stored as datetime
+      sheet = .x
+    )
+
+})
+```
+
+```{r}
+wav120_data %>%
+  distinct(Compound_Name)
+#there are 11 distinct compounds in this dataset
+
+wav120_data %>%
+  distinct(year)
+#14 distinct years of sampling - from 2010 to 2024
+```
+
+```{r}
+#calculate the mean concentration of each chemical in each year
+wav120_yearly_means <- wav120_data %>%
+  mutate(Year = year(Sample_datetime)) %>%
+  group_by(Year, Compound_Name) %>%
+  summarise(
+    mean_concentration = mean(Concentration, na.rm = TRUE),
+    n_samples = n(),
+    .groups = "drop"
+  )
+```
+
+
+
+
+
+```{r}
+#plot a heatmap
+ggplot(wav120_yearly_means, aes(Year, Compound_Name, fill= mean_concentration)) + 
+  geom_tile() +
+  scale_fill_distiller(palette = "RdPu") +
+  theme_bw()
 ```
 
