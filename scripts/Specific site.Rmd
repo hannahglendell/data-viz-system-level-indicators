@@ -1,0 +1,23 @@
+---
+title: "Specific site"
+output: html_document
+---
+
+```{r}
+library(readxl)
+library(dplyr)
+library(purrr)
+```
+
+```{r}
+#to find out which sheets have data on the site WAV120
+
+file <- here("data", "Pharmaceuticals infomation_V3.xlsx")
+
+excel_sheets(file) %>%
+  keep(~{
+    dat <- read_excel(file, sheet = .x)
+    "WAV120" %in% dat$Sample_Site_ID
+  })
+```
+
