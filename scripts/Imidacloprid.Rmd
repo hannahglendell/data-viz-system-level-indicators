@@ -19,7 +19,7 @@ library(patchwork)
 ```
 
 ```{r}
-#read in the dataset
+#read in the dataset of imidacloprid
 
 #try reading in all of the datasets at once, as a excel spreadsheet
 #this reads in all of the sheets at once!
@@ -40,7 +40,7 @@ imidacloprid$Sample_datetime <- ymd_hms(imidacloprid$Sample_datetime)
 ```
 
 ```{r}
-#read in the rainfall dataset
+#read in the rainfall dataset - this was created from the 'extracting site rainfall data' script
 rainfall <- read.csv(here("data", "daily_rainfall_1km", "rainfall.csv"))
 
 #save the date as a date format
@@ -62,8 +62,8 @@ imidacloprid_sf <- imidacloprid_sf %>%
   filter(Sample_Site_ID != "REDACTED")
 
 #for use in another script, i want a list of unique sites and their coordinates
-unique_sites <- imidacloprid_sf %>%
-  dplyr::distinct(Sample_Site_ID, geometry)
+#unique_sites <- imidacloprid_sf %>%
+ # dplyr::distinct(Sample_Site_ID, geometry)
 
 #save as st file in the data folder
 #st_write(unique_sites,here("data", "imidacloprid sites", "unique_sites.gpkg"),delete_dsn = TRUE)
@@ -73,10 +73,7 @@ unique_sites <- imidacloprid_sf %>%
 ############################################
 legend where the size of the points shows the number of samples at each site
 ```{r}
-
-
 #to adjust the size of the point by how well sampled it is, need to count the number of obersvations at each site.
-
 site_counts <- imidacloprid_sf %>%
   st_drop_geometry() %>%
   count(Sample_Site_ID, name = "n_obs") %>% #count the number of observations at each site
@@ -87,8 +84,6 @@ site_counts <- imidacloprid_sf %>%
     by = "Sample_Site_ID"
   ) %>%
   st_as_sf() #convert into a geometry column
-
-
 
 
 #define the bins for the legend, and the radii of the points corresponding to the bins
@@ -530,21 +525,44 @@ shinyApp(ui, server)
 
 
 trying out the new legend along with the rainfall plotted
+trying out with two check boxes
 ```{r}  
 
 ui <- fluidPage(
 
   titlePanel("Imidacloprid Concentrations"),
-
+#this is the size of the first column, which shows the map
   fluidRow(
     column(
       width = 7,
       leafletOutput("map", height = 500)
     ),
-
+#this is the size of the second column, which shows the concentration and rainfall timeseries
     column(
       width = 5,
-      plotlyOutput("timeseries", height = 700)
+      plotlyOutput("timeseries", height = 700),
+     checkboxInput(
+  "show_mac_eqs",
+  HTML(
+    "Show MAC-EQS (0.057 µg/L)<br>
+    <span style='font-size:90%; color:#666;'>
+      Short-term exposure threshold
+    </span>"
+  ),
+  value = FALSE
+),
+
+checkboxInput(
+  "show_aa_eqs",
+  HTML(
+    "Show AA-EQS (0.0068 µg/L)<br>
+    <span style='font-size:90%; color:#666;'>
+      Long-term exposure threshold
+    </span>"
+  ),
+  value = FALSE
+)
+      
     )
   )
 )
@@ -631,29 +649,116 @@ leafletProxy("map", data = site_summaries) %>%
       yaxis = list(title = "Rainfall (mm)")
     )
 
-  p_conc <- plot_ly(
-    data = site_data(),
-    x = ~Sample_datetime,
-    y = ~Concentration,
-    type = "scatter",
-    mode = "lines+markers",
-    line = list(color = "black"),
-    marker = list(size = 5),
-    hovertemplate =
-      paste(
-        "<b>Date:</b> %{x}<br>",
-        "<b>Concentration:</b> %{y:.3f} µg/L",
-        "<extra></extra>"
-      )
-  ) %>%
-    layout(
-      title = paste("Site:", selected_site()),
-      xaxis = list(title = "Date"),
-      yaxis = list(
-        title = "Imidacloprid (µg/L)",
-        range = c(0.0002, 0.25)
+ p_conc <- plot_ly(
+  data = site_data(),
+  x = ~Sample_datetime,
+  y = ~Concentration,
+  type = "scatter",
+  mode = "lines+markers",
+  line = list(color = "black"),
+  marker = list(size = 5),
+  hovertemplate =
+    paste(
+      "<b>Date:</b> %{x}<br>",
+      "<b>Concentration:</b> %{y:.3f} µg/L",
+      "<extra></extra>"
+    )
+)
+
+# Base layout
+p_conc <- p_conc %>%
+  layout(
+    title = paste("Site:", selected_site()),
+    xaxis = list(title = "Date"),
+    yaxis = list(
+      title = "Imidacloprid (µg/L)",
+      range = c(0.0002, 0.25)
+    )
+  )
+
+# Add MAC-EQS line if requested
+shapes <- list()
+annotations <- list()
+
+# MAC-EQS
+if (input$show_mac_eqs) {
+
+  shapes <- append(shapes, list(
+    list(
+      type = "line",
+      xref = "paper",
+      x0 = 0,
+      x1 = 1,
+      y0 = 0.057,
+      y1 = 0.057,
+      line = list(
+        color = "red",
+        dash = "dash",
+        width = 2
       )
     )
+  ))
+
+  annotations <- append(annotations, list(
+    list(
+      x = 0.98,
+      xref = "paper",
+      y = 0.065,
+      yref = "y",
+      text = "MAC-EQS",
+      showarrow = FALSE,
+      xanchor = "right",
+      font = list(color = "red")
+    )
+  ))
+}
+
+# AA-EQS
+if (input$show_aa_eqs) {
+
+  shapes <- append(shapes, list(
+    list(
+      type = "line",
+      xref = "paper",
+      x0 = 0,
+      x1 = 1,
+      y0 = 0.0068,
+      y1 = 0.0068,
+      line = list(
+        color = "darkgreen",
+        dash = "dash",
+        width = 2
+      )
+    )
+  ))
+
+  annotations <- append(annotations, list(
+    list(
+      x = 0.98,
+      xref = "paper",
+      y = 0.012,
+      yref = "y",
+      text = "AA-EQS",
+      showarrow = FALSE,
+      xanchor = "right",
+      font = list(color = "darkgreen")
+    )
+  ))
+}
+
+# Apply both (if present)
+p_conc <- p_conc %>%
+  layout(
+    shapes = shapes,
+    annotations = annotations
+  )
+
+  
+  
+  
+  
+  
+  
 
   subplot(
     p_rain,
@@ -675,8 +780,6 @@ leafletProxy("map", data = site_summaries) %>%
 
 shinyApp(ui, server)
 ```
-
-
 
 
 

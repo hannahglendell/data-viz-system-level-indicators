@@ -33,22 +33,22 @@ hydrometric_areas_rain <- st_transform(hydrometric_areas, crs(rainfall_2025))
 ```{r}
 #read in all the rainfall data from different years
 rainfall_2025 <- rast(
-  here("data", "rainfall", "rainfall_2025.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2025.nc"))
 
 rainfall_2024 <- rast(
-  here("data", "rainfall", "rainfall_2024.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2024.nc"))
 
 rainfall_2023 <- rast(
-  here("data", "rainfall", "rainfall_2023.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2023.nc"))
 
 rainfall_2022 <- rast(
-  here("data", "rainfall", "rainfall_2022.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2022.nc"))
 
 rainfall_2021 <- rast(
-  here("data", "rainfall", "rainfall_2021.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2021.nc"))
 
 rainfall_2020 <- rast(
-  here("data", "rainfall", "rainfall_2020.nc"))
+  here("data", "monthly_rainfall_5km", "rainfall_2020.nc"))
 
 
 
@@ -77,7 +77,7 @@ rainfall_2020 <- clean_rainfall(rainfall_2020)
 
 ```{r}
 # fixed colour scale across all months
-#set breaks
+#set breaks, from 0 - 700, by increments size 100
 brks <- c(seq(0, 700, by = 100), Inf)
 
 #store all the rainfall datasets in a list
@@ -118,7 +118,7 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      plotOutput("rain_map", height = "500px")
+      plotOutput("rain_map", height = "800px")
     )
   )
 )
