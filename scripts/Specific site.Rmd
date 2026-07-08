@@ -135,9 +135,11 @@ ggplot(
     y = NULL,
     fill = expression(Concentration~"("*mu*"g L"^{-1}*")")
   ) +
-  theme_bw()
+  theme_minimal()
 
 #another option is to z-score each chemical, so that it is given a mean of 0 and a standard deviation of 1
+#normalise the data
+#when there is only one datapoint, you can't calculate a z-score
 wav120_scaled <- wav120_yearly_means %>%
   group_by(Compound_Name) %>%
   mutate(
@@ -146,10 +148,7 @@ wav120_scaled <- wav120_yearly_means %>%
   ungroup()
 
 
-
-
-#normalise the data
-#when there is only one datapoint, you can't calculate a z-score
+#complete the dataset so that I can plot NA values in grey
 wav120_scaled_complete <- wav120_scaled %>%
   complete(
     Year = 2010:2024,   
@@ -174,10 +173,7 @@ ggplot(wav120_scaled_complete,
     y = NULL,
     fill = "Z-score"
   ) +
-  theme_bw() #+ 
-  #theme(
-    #panel.background = element_rect(fill = "black")
-  #)
+  theme_minimal() 
 
 
 ```
