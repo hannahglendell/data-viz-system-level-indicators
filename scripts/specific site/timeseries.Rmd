@@ -97,7 +97,7 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      plotlyOutput("timeseries", height = "700px")
+      plotlyOutput("timeseries", height = "500px")
     )
 
   )

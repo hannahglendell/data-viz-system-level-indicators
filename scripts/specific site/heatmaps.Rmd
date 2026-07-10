@@ -111,20 +111,12 @@ wav120_yearly_means <- wav120_data %>%
 
 ```{r}
 #plot a heatmap using ggplot2
-#ggplot(wav120_yearly_means, aes(Year, Compound_Name, fill= mean_concentration)) + 
- # geom_tile() +
- # scale_fill_distiller(palette = "YlGnBu") +
- # theme_bw()
 
-#changes the colour palette
-#ggplot(wav120_yearly_means,
-#       aes(Year, Compound_Name, fill = mean_concentration)) +
-#  geom_tile() +
-#  scale_fill_viridis_c(option = "D") +
-#  theme_bw()
+
+source(here("scripts", "mytheme.R"))
 
 #try capping the colour scale - anything above 0.1 is shown in the maximum colour
-ggplot(
+heatmap1 <- ggplot(
   wav120_yearly_means,
   aes(Year, Compound_Name, fill = mean_concentration)
 ) +
@@ -139,8 +131,24 @@ ggplot(
     y = NULL,
     fill = expression(Concentration~"("*mu*"g L"^{-1}*")")
   ) +
-  theme_minimal()
+  my_theme() +
+  theme(
+    axis.title.x = element_text(size = 20, face = "bold"),
+    axis.title.y = element_text(size = 20, face = "bold"),
+    axis.text = element_text( size = 20),
+    legend.title = element_text(size = 20, face = "bold"),
+    legend.text = element_text(size = 18))
 
+heatmap1
+
+ggsave(
+  here("figures", "heatmap1.png"),
+  plot = heatmap1,
+  width = 5,
+  height = 3,
+  dpi = 300,
+    bg = "#F4F5F1"
+)
 ```
 
 ```{r}
@@ -166,7 +174,7 @@ wav120_scaled_complete <- wav120_scaled %>%
 
 
 #plot a heatmap of these z-scores
-ggplot(wav120_scaled_complete,
+heatmap2 <- ggplot(wav120_scaled_complete,
        aes(Year, Compound_Name, fill = scaled_conc)) +
   geom_tile() +
   scale_fill_gradient2(
@@ -180,9 +188,24 @@ ggplot(wav120_scaled_complete,
     y = NULL,
     fill = "Z-score"
   ) +
-  theme_minimal() 
+  my_theme() +
+  theme(
+    axis.title.x = element_text(size = 20, face = "bold"),
+    axis.title.y = element_text(size = 20, face = "bold"),
+    axis.text = element_text( size = 20),
+    legend.title = element_text(size = 20, face = "bold"),
+    legend.text = element_text(size = 18))
 
+heatmap2
 
+ggsave(
+  here("figures", "heatmap2.png"),
+  plot = heatmap2,
+  width = 5,
+  height = 3,
+  dpi = 300,
+    bg = "#F4F5F1"
+)
 ```
 
 ```{r}
@@ -218,7 +241,7 @@ wav120_yearly_means <- wav120_yearly_means %>%
 
 ```{r}
 #now plot as a heatmap
-ggplot(wav120_yearly_means,
+heatmap3 <- ggplot(wav120_yearly_means,
        aes(Year, Compound_Name, fill = pct_difference)) +
   geom_tile() +
   scale_fill_gradient2(
@@ -236,7 +259,24 @@ ggplot(wav120_yearly_means,
     y = NULL,
     fill = "Difference from PNEC (%)"
   ) +
-  theme_minimal() 
+  my_theme() +
+  theme(
+    axis.title.x = element_text(size = 20, face = "bold"),
+    axis.title.y = element_text(size = 20, face = "bold"),
+    axis.text = element_text( size = 20),
+    legend.title = element_text(size = 20, face = "bold"),
+    legend.text = element_text(size = 18))
+
+heatmap3
+
+ggsave(
+  here("figures", "heatmap3.png"),
+  plot = heatmap3,
+  width = 5,
+  height = 3,
+  dpi = 300,
+    bg = "#F4F5F1"
+)
 ```
 
 
