@@ -22,16 +22,28 @@ library(ggridges)
 file <- here("data", "Pharmaceuticals infomation_V3.xlsx")
 
 #to find out which sheets have data on the site WAV120
-excel_sheets(file) %>%
-  keep(~{
-    dat <- read_excel(file, sheet = .x)
-    "WAV120" %in% dat$Sample_Site_ID
-  })
+#excel_sheets(file) %>%
+ # keep(~{
+ #   dat <- read_excel(file, sheet = .x)
+ #   "WAV120" %in% dat$Sample_Site_ID
+ # })
 
 #store these sheets that have data on WAV120 in an object called site_sheets
+#site_sheets <- excel_sheets(file) %>%
+ # keep(~{
+ #   dat <- read_excel(file, sheet = .x)
+ #   "WAV120" %in% dat$Sample_Site_ID
+ # })
+
+#this code doesn't assume that every sheet has the column Sample_Site_ID
 site_sheets <- excel_sheets(file) %>%
   keep(~{
     dat <- read_excel(file, sheet = .x)
+
+    if (!"Sample_Site_ID" %in% names(dat)) {
+      return(FALSE)
+    }
+
     "WAV120" %in% dat$Sample_Site_ID
   })
 ```
@@ -72,15 +84,7 @@ wav120_data <- map_dfr(site_sheets, ~{
   #filter(Concentration != 9)
 ```
 
-```{r}
-wav120_data %>%
-  distinct(Compound_Name)
-#there are 11 distinct compounds in this dataset
 
-wav120_data %>%
-  distinct(year)
-#14 distinct years of sampling - from 2010 to 2024
-```
 
 ```{r}
 #calculate the mean concentration of each chemical in each year
@@ -107,17 +111,17 @@ wav120_yearly_means <- wav120_data %>%
 
 ```{r}
 #plot a heatmap using ggplot2
-ggplot(wav120_yearly_means, aes(Year, Compound_Name, fill= mean_concentration)) + 
-  geom_tile() +
-  scale_fill_distiller(palette = "YlGnBu") +
-  theme_bw()
+#ggplot(wav120_yearly_means, aes(Year, Compound_Name, fill= mean_concentration)) + 
+ # geom_tile() +
+ # scale_fill_distiller(palette = "YlGnBu") +
+ # theme_bw()
 
 #changes the colour palette
-ggplot(wav120_yearly_means,
-       aes(Year, Compound_Name, fill = mean_concentration)) +
-  geom_tile() +
-  scale_fill_viridis_c(option = "D") +
-  theme_bw()
+#ggplot(wav120_yearly_means,
+#       aes(Year, Compound_Name, fill = mean_concentration)) +
+#  geom_tile() +
+#  scale_fill_viridis_c(option = "D") +
+#  theme_bw()
 
 #try capping the colour scale - anything above 0.1 is shown in the maximum colour
 ggplot(
@@ -137,6 +141,9 @@ ggplot(
   ) +
   theme_minimal()
 
+```
+
+```{r}
 #another option is to z-score each chemical, so that it is given a mean of 0 and a standard deviation of 1
 #normalise the data
 #when there is only one datapoint, you can't calculate a z-score
@@ -150,7 +157,7 @@ wav120_scaled <- wav120_yearly_means %>%
 
 #complete the dataset so that I can plot NA values in grey
 wav120_scaled_complete <- wav120_scaled %>%
-  complete(
+  tidyr::complete(
     Year = 2010:2024,   
     Compound_Name,
     fill = list(scaled_conc = NA)
@@ -177,118 +184,65 @@ ggplot(wav120_scaled_complete,
 
 
 ```
-```{r}
-#remove clarithromycin because that one high measurement is making the data really difficult to visualise
-#wav120_yearly_means <- wav120_yearly_means %>%
-  #filter(Compound_Name != "Clarithromycin")%>%
-  #filter(Compound_Name != "Ibuprofen")
-
-#make a bar plot of the mean concentration of each chemical over each year
-barplot <- ggplot(wav120_yearly_means, aes(x=Compound_Name, y=mean_concentration)) + 
-  geom_bar(stat = "identity") +
-  facet_wrap(~ Year) +
-  coord_flip()
-
-barplot
-
-
-ggsave(
-  here("figures", "barplot.png"),
-  plot = barplot,
-  width = 20,
-  height = 10,
-  dpi = 300
-)
-
-
-
-ggplot(wav120_yearly_means, aes(x=Compound_Name, y=mean_concentration)) + 
-  geom_bar(stat = "identity") +
-  facet_wrap(~ Year) + 
-  theme(
-    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-
-
-```
-
 
 ```{r}
-#timeseries plot with ggplotly and Rshiny
-ui <- fluidPage(
+#read in the PNEC thresholds
+thresholds <- read.csv(here("data", "thresholds(Sheet1).csv"))
 
-  titlePanel("Site WAV120"),
+#make the substance column have capital letters
+thresholds$substance <- tools::toTitleCase(thresholds$substance)
 
-  sidebarLayout(
-
-    sidebarPanel(
-
-      checkboxGroupInput(
-        inputId = "compound",
-        label = "Select compounds:",
-        choices = sort(unique(wav120_data$Compound_Name)),
-        selected = unique(wav120_data$Compound_Name)[1:3]
-      )
-
-    ),
-
-    mainPanel(
-      plotlyOutput("timeseries", height = "700px")
-    )
-
+#join the PNEC values onto the dataset
+wav120_yearly_means <- wav120_yearly_means %>%
+  left_join(
+    thresholds,
+    by = c("Compound_Name" = "substance")) %>%
+  select(Year, Compound_Name, mean_concentration, n_samples, PNEC) %>% #complete all missing values so they are plotted as NAs
+  tidyr::complete(
+    Year = 2010:2024,   
+    Compound_Name,
+    fill = list(scaled_conc = NA)
   )
 
-)
+#now calculate the percentage above or below the threshold
+#calculate the percentage difference of each observation relative to the PNEC
+wav120_yearly_means <- wav120_yearly_means %>%
+  mutate(
+    pct_difference = ((mean_concentration - PNEC) / PNEC) * 100
+  )
 
-server <- function(input, output, session) {
 
-  filtered_data <- reactive({
-
-    wav120_data %>%
-      filter(Compound_Name %in% input$compound)
-
-  })
-
-  output$timeseries <- renderPlotly({
-
-    p <- ggplot(
-      filtered_data(),
-      aes(
-        x = Sample_datetime,
-        y = Concentration,
-        colour = Compound_Name,
-        group = Compound_Name,
-        text = paste0(
-          "<b>", Compound_Name, "</b>",
-          "<br>Date: ", Sample_datetime,
-          "<br>Concentration: ", round(Concentration, 3), " µg/L"
-        )
-      )
-    ) +
-      geom_line() +
-      geom_point() +
-      scale_colour_viridis_d(option = "D") +
-      labs(
-    x = "Date",
-    y = "Concentration (µg/L)",
-    colour = "Compound") +
-      theme_bw()
-
-    ggplotly(p, tooltip = "text")
-
-  })
-
-}
-
-shinyApp(ui, server)
 ```
+
+
 
 ```{r}
-#ridgeline plot
-# basic example
-ggplot(wav120_data, aes(x = Concentration, y = Compound_Name, fill = Compound_Name)) +
-  geom_density_ridges() +
-  theme_ridges() + 
-  coord_cartesian(xlim = c(0, 0.15)) +
-  theme(legend.position = "none")
+#now plot as a heatmap
+ggplot(wav120_yearly_means,
+       aes(Year, Compound_Name, fill = pct_difference)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "green",
+    mid = "white",
+    high = "blue",
+    midpoint = 0,
+    limits = c(-200, 200),
+  oob = scales::squish,
+  breaks = c(-200, -100, 0, 100, 200),
+    labels = c("\u2264 -200", "-100", "0", "100", "\u2265 200"),
+    na.value = "grey"
+  ) +
+  labs(
+    y = NULL,
+    fill = "Difference from PNEC (%)"
+  ) +
+  theme_minimal() 
 ```
+
+
+
+
+
+
+
 

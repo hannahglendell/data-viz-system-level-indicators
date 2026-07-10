@@ -138,6 +138,153 @@ legend_html <- paste0(
 )
 ```
 
+
+
+```{r}  
+
+ui <- fluidPage(
+
+  titlePanel("Imidacloprid Concentrations"),
+#controls the size of the left-hand column, which shows the map
+  fluidRow(
+    column(
+      width = 7,
+      leafletOutput("map", height = 500)
+    ),
+#controls the size of the right-hand column, which shows the timeseries plots
+    column(
+      width = 5,
+      plotlyOutput("timeseries", height = 700)
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  # store clicked site
+  selected_site <- reactiveVal(NULL)
+
+  # initialise map ONCE
+  output$map <- renderLeaflet({
+    leaflet(imidacloprid_sf) %>%
+      addProviderTiles(providers$CartoDB.Positron)
+  })
+
+  # handle clicks
+  observeEvent(input$map_marker_click, {
+    selected_site(input$map_marker_click$id)
+  })
+
+  # draw ALL points 
+  observe({
+    leafletProxy("map", data = site_counts) %>%
+      clearMarkers() %>%
+      clearControls() %>%
+      addCircleMarkers(
+        radius = ~radius,
+        stroke = FALSE,
+        fillColor = "blue",
+        fillOpacity = 0.7,
+        layerId = ~Sample_Site_ID,
+        popup = ~paste("<b>Site:</b>", Sample_Site_ID, "<br>",
+                       "<b>Samples:</b>", n_obs)
+        )%>%
+      addControl(
+    html = HTML(legend_html),
+    position = "bottomright"
+  )
+  })
+
+  # make a concentration plot for the selected site
+  site_data <- reactive({
+
+    req(selected_site())
+
+    imidacloprid_sf %>%
+      st_drop_geometry() %>%
+      filter(Sample_Site_ID == selected_site()) %>%
+      arrange(Sample_datetime)
+
+  })
+
+  #make a rainfall plot for the selected site
+  rain_data <- reactive({
+
+  req(selected_site())
+
+  dat <- rainfall %>%
+    filter(Sample_Site_ID == selected_site()) %>%
+    arrange(date)
+
+
+})
+  
+ output$timeseries <- renderPlotly({
+
+  req(selected_site())
+
+  p_rain <- plot_ly(
+    data = rain_data(),
+    x = ~date,
+    y = ~rainfall,
+    type = "bar",
+    marker = list(color = "steelblue"),
+    hovertemplate =
+      paste(
+        "<b>Date:</b> %{x}<br>",
+        "<b>Rainfall:</b> %{y:.1f} mm",
+        "<extra></extra>"
+      )
+  ) %>%
+    layout(
+      yaxis = list(title = "Rainfall (mm)")
+    )
+
+  p_conc <- plot_ly(
+    data = site_data(),
+    x = ~Sample_datetime,
+    y = ~Concentration,
+    type = "scatter",
+    mode = "lines+markers",
+    line = list(color = "black"),
+    marker = list(size = 5),
+    hovertemplate =
+      paste(
+        "<b>Date:</b> %{x}<br>",
+        "<b>Concentration:</b> %{y:.3f} µg/L",
+        "<extra></extra>"
+      )
+  ) %>%
+    layout(
+      title = paste("Site:", selected_site()),
+      xaxis = list(title = "Date"),
+      yaxis = list(
+        title = "Imidacloprid (µg/L)",
+        range = c(0.0002, 0.25)
+      )
+    )
+
+  subplot(
+    p_rain,
+    p_conc,
+    nrows = 2,
+    shareX = TRUE,
+    heights = c(0.5, 0.5),
+    titleY = TRUE
+  ) %>%
+    layout(
+      showlegend = FALSE,
+      hovermode = "x unified"
+    )
+
+})
+
+
+}
+
+shinyApp(ui, server)
+```
+
 ###########################################################################
 legend by colour AND size
 the size of the point shows the median number of samples per year
@@ -376,154 +523,6 @@ server <- function(input, output, session) {
 shinyApp(ui, server)
 ```
 
-This one has rainfall added and the old legend (the points are scaled by number of observations)
-
-```{r}  
-
-ui <- fluidPage(
-
-  titlePanel("Imidacloprid Concentrations"),
-#controls the size of the left-hand column, which shows the map
-  fluidRow(
-    column(
-      width = 7,
-      leafletOutput("map", height = 500)
-    ),
-#controls the size of the right-hand column, which shows the timeseries plots
-    column(
-      width = 5,
-      plotlyOutput("timeseries", height = 700)
-    )
-  )
-)
-
-server <- function(input, output, session) {
-
-  # store clicked site
-  selected_site <- reactiveVal(NULL)
-
-  # initialise map ONCE
-  output$map <- renderLeaflet({
-    leaflet(imidacloprid_sf) %>%
-      addProviderTiles(providers$CartoDB.Positron)
-  })
-
-  # handle clicks
-  observeEvent(input$map_marker_click, {
-    selected_site(input$map_marker_click$id)
-  })
-
-  # draw ALL points 
-  observe({
-    leafletProxy("map", data = site_counts) %>%
-      clearMarkers() %>%
-      clearControls() %>%
-      addCircleMarkers(
-        radius = ~radius,
-        stroke = FALSE,
-        fillColor = "blue",
-        fillOpacity = 0.7,
-        layerId = ~Sample_Site_ID,
-        popup = ~paste("<b>Site:</b>", Sample_Site_ID, "<br>",
-                       "<b>Samples:</b>", n_obs)
-        )%>%
-      addControl(
-    html = HTML(legend_html),
-    position = "bottomright"
-  )
-  })
-
-  # make a concentration plot for the selected site
-  site_data <- reactive({
-
-    req(selected_site())
-
-    imidacloprid_sf %>%
-      st_drop_geometry() %>%
-      filter(Sample_Site_ID == selected_site()) %>%
-      arrange(Sample_datetime)
-
-  })
-
-  #make a rainfall plot for the selected site
-  rain_data <- reactive({
-
-  req(selected_site())
-
-  dat <- rainfall %>%
-    filter(Sample_Site_ID == selected_site()) %>%
-    arrange(date)
-
-
-})
-  
- output$timeseries <- renderPlotly({
-
-  req(selected_site())
-
-  p_rain <- plot_ly(
-    data = rain_data(),
-    x = ~date,
-    y = ~rainfall,
-    type = "bar",
-    marker = list(color = "steelblue"),
-    hovertemplate =
-      paste(
-        "<b>Date:</b> %{x}<br>",
-        "<b>Rainfall:</b> %{y:.1f} mm",
-        "<extra></extra>"
-      )
-  ) %>%
-    layout(
-      yaxis = list(title = "Rainfall (mm)")
-    )
-
-  p_conc <- plot_ly(
-    data = site_data(),
-    x = ~Sample_datetime,
-    y = ~Concentration,
-    type = "scatter",
-    mode = "lines+markers",
-    line = list(color = "black"),
-    marker = list(size = 5),
-    hovertemplate =
-      paste(
-        "<b>Date:</b> %{x}<br>",
-        "<b>Concentration:</b> %{y:.3f} µg/L",
-        "<extra></extra>"
-      )
-  ) %>%
-    layout(
-      title = paste("Site:", selected_site()),
-      xaxis = list(title = "Date"),
-      yaxis = list(
-        title = "Imidacloprid (µg/L)",
-        range = c(0.0002, 0.25)
-      )
-    )
-
-  subplot(
-    p_rain,
-    p_conc,
-    nrows = 2,
-    shareX = TRUE,
-    heights = c(0.5, 0.5),
-    titleY = TRUE
-  ) %>%
-    layout(
-      showlegend = FALSE,
-      hovermode = "x unified"
-    )
-
-})
-
-
-}
-
-shinyApp(ui, server)
-```
-
-
 trying out the new legend along with the rainfall plotted
 trying out with two check boxes
 ```{r}  
@@ -540,7 +539,7 @@ ui <- fluidPage(
 #this is the size of the second column, which shows the concentration and rainfall timeseries
     column(
       width = 5,
-      plotlyOutput("timeseries", height = 700),
+      plotlyOutput("timeseries", height = 500),
      checkboxInput(        #add a checkbox for MAc-EQS
   "show_mac_eqs",
   HTML(

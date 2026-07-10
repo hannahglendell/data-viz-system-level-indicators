@@ -118,7 +118,7 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      plotOutput("rain_map", height = "800px")
+      plotOutput("rain_map", height = "500px")
     )
   )
 )
