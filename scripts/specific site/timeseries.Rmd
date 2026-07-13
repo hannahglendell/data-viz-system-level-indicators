@@ -24,6 +24,8 @@ library(scico)
 library(ggtext)
 library(patchwork)
 library(gghighlight)
+library(shiny)
+library(plotly)
 ```
 
 ```{r}

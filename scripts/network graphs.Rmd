@@ -1,0 +1,125 @@
+---
+title: "network graphs"
+output: html_document
+---
+
+```{r}
+library(igraph)
+library(networkD3)
+library(visNetwork)
+library(htmlwidgets)
+```
+
+```{r}
+#creat the graph from a a list of edges - literally listing the sources and the targets
+links <- data.frame(
+    source=c("cats and dogs","handwashing", "farming", "wwTW", "cats and dogs","farming", "rivers", "farming", "crops"),
+    target=c("handwashing","wwTW", "handwashing", "rivers", "rivers","rivers","acquatic life", "crops", "bees")
+    )
+
+# create the network object
+network <- graph_from_data_frame(d=links, directed=T) 
+
+# plot it
+plot(network)
+
+#now i can get the adjacency matrix from this graph
+# Get adjacency matrix
+adj <- as_adjacency_matrix(network, sparse = FALSE)
+
+adj
+
+#and i can plot the same graph from this adjacency matrix too
+plot(graph_from_adjacency_matrix(adj))
+
+#this works fine but it is a bit ugly and it is not interactive
+```
+```{r}
+#now make an interactive version of this network graph
+#but you can't have a directed graph using this package
+p <- simpleNetwork(links, height="100px", width="100px",        
+        Source = 1,                 # column number of source
+        Target = 2,                 # column number of target
+        linkDistance = 10,          # distance between node. Increase this value to have more space between nodes
+        charge = -900,                # numeric value indicating either the strength of the node repulsion (negative value) or attraction (positive value)
+        fontSize = 14,               # size of the node names
+        fontFamily = "serif",       # font og node names
+        linkColour = "#666",        # colour of edges, MUST be a common colour for the whole graph
+        nodeColour = "#69b3a2",     # colour of nodes, MUST be a common colour for the whole graph
+        opacity = 0.9,              # opacity of nodes. 0=transparent. 1=no transparency
+        zoom = T                    # Can you zoom on the figure?
+        )
+
+p
+
+
+# save the widget
+
+ 
+ saveWidget(
+  p,
+  file = here("network.html")
+)
+```
+
+
+
+
+```{r}
+#try out a different package, called visNetwork
+# Edge list
+links <- data.frame(
+  source = c("cats and dogs","handwashing","farming","wwTW",
+             "cats and dogs","farming","rivers","farming","crops"),
+  target = c("handwashing","wwTW","handwashing","rivers",
+             "rivers","rivers","acquatic life","crops","bees"),
+  stringsAsFactors = FALSE
+)
+
+# Create nodes
+nodes <- data.frame(
+  id = unique(c(links$source, links$target)),
+  label = unique(c(links$source, links$target))
+)
+
+# Create edges
+edges <- data.frame(
+  from = links$source,
+  to = links$target,
+  arrows = "to"
+)
+
+# Plot
+directed_network <- visNetwork(nodes, edges, height = "600px", width = "100%") %>%
+  visEdges(
+    arrows = "to",
+    smooth = FALSE
+  ) %>%
+  visNodes(
+    shape = "dot",
+    size = 20,
+    color = list(
+      background = "#69b3a2",
+      border = "#2C7F75"
+    ),
+    font = list(size = 18)
+  ) %>%
+  visPhysics(
+    solver = "forceAtlas2Based"
+  ) %>%
+  visInteraction(
+    navigationButtons = TRUE,
+    zoomView = TRUE,
+    dragNodes = TRUE
+  ) %>%
+  visHierarchicalLayout(direction = "LR") %>%
+  visEdges(arrows = "to")
+
+directed_network
+
+ saveWidget(
+  directed_network,
+  file = here("directed network.html")
+)
+```
+

@@ -1,0 +1,17 @@
+---
+title: "two chemicals correlated"
+output: html_document
+---
+
+```{r}
+#i want to look at how imidacloprid and fipronil sulfon are correlated, across the UK
+```
+
+```{r}
+#load both datasets
+```
+
+```{r}
+
+```
+

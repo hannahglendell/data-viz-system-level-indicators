@@ -656,7 +656,7 @@ leafletProxy("map", data = site_summaries) %>%
   type = "scatter",
   mode = "lines+markers",
   line = list(color = "black"),
-  marker = list(size = 5),
+  marker = list(size = 5, color = "black"),
   hovertemplate =
     paste(
       "<b>Date:</b> %{x}<br>",
