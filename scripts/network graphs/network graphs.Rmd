@@ -14,7 +14,7 @@ library(htmlwidgets)
 #creat the graph from a a list of edges - literally listing the sources and the targets
 links <- data.frame(
     source=c("cats and dogs","handwashing", "farming", "wwTW", "cats and dogs","farming", "rivers", "farming", "crops"),
-    target=c("handwashing","wwTW", "handwashing", "rivers", "rivers","rivers","acquatic life", "crops", "bees")
+    target=c("handwashing","wwTW", "handwashing", "rivers", "rivers","rivers","aquatic life", "crops", "bees")
     )
 
 # create the network object
@@ -54,12 +54,10 @@ p
 
 
 # save the widget
-
- 
- saveWidget(
-  p,
-  file = here("network.html")
-)
+ #saveWidget(
+  #p,
+ # file = here("network graphs", "network.html")
+#)
 ```
 
 
@@ -72,7 +70,7 @@ links <- data.frame(
   source = c("cats and dogs","handwashing","farming","wwTW",
              "cats and dogs","farming","rivers","farming","crops"),
   target = c("handwashing","wwTW","handwashing","rivers",
-             "rivers","rivers","acquatic life","crops","bees"),
+             "rivers","rivers","aquatic life","crops","bees"),
   stringsAsFactors = FALSE
 )
 
@@ -117,9 +115,9 @@ directed_network <- visNetwork(nodes, edges, height = "600px", width = "100%") %
 
 directed_network
 
- saveWidget(
-  directed_network,
-  file = here("directed network.html")
-)
+# saveWidget(
+#  directed_network,
+#  file = here("network graphs", "directed network.html")
+#) 
 ```
 
