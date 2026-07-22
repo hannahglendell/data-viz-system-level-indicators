@@ -1,0 +1,155 @@
+---
+title: "chempop"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(here)
+library(ggplot2)
+library(plotly)
+```
+
+```{r}
+#read in the dissolved zinc datasets
+
+anglian_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_an_minv_zincdissolvedstats_19800916-20181128.csv"))
+
+midlands_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_mi_minv_zincdissolvedstats_19750502-20181127.csv"))
+
+northeast_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_ne_minv_zincdissolvedstats_19750414-20181116.csv"))
+
+northwest_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_nw_minv_zincdissolvedstats_19800515-20181121.csv"))
+
+southern_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_so_minv_zincdissolvedstats_19650608-20181121.csv"))
+
+southwest_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_sw_minv_zincdissolvedstats_19740618-20181122.csv"))
+
+thames_zinc <- read.csv(here("data", "Chempop", "zinc", "cp_th_minv_zincdissolvedstats_19741119-20181207.csv"))
+```
+
+```{r}
+#I only want the columns BIO_SITE, BIO_SAMPLE_DATE, and WQ_MEAN_LOQ1
+#LOQ1 means that values below the LOQ are set to the LOQ value
+#then remove all rows where WQ_MEAN_LOQ1 is NA
+
+#list all the datasets
+zinc_datasets <- list(
+  anglian_zinc,
+  midlands_zinc,
+  northeast_zinc,
+  northwest_zinc,
+  southern_zinc,
+  southwest_zinc,
+  thames_zinc
+)
+
+
+regions <- c(
+  "Anglian",
+  "Midlands",
+  "Northeast",
+  "Northwest",
+  "Southern",
+  "Southwest",
+  "Thames"
+)
+
+
+
+zinc_datasets <- lapply(seq_along(zinc_datasets), function(i) {
+  
+  zinc_datasets[[i]] %>% 
+    select(BIO_SITE_ID, BIO_SAMPLE_DATE, WQ_MEAN_LOQ1) %>% #select the columns that I want
+    filter(!is.na(WQ_MEAN_LOQ1)) %>% #remove NA rows
+    mutate(
+      BIO_SAMPLE_DATE = as.Date(BIO_SAMPLE_DATE), #make bio sample date stored as date
+      region = regions[i]) #add a region column
+})
+
+# Put them back into their original objects
+anglian_zinc   <- zinc_datasets[[1]]
+midlands_zinc  <- zinc_datasets[[2]]
+northeast_zinc <- zinc_datasets[[3]]
+northwest_zinc <- zinc_datasets[[4]]
+southern_zinc  <- zinc_datasets[[5]]
+southwest_zinc <- zinc_datasets[[6]]
+thames_zinc    <- zinc_datasets[[7]]
+
+#now put all the datasets together
+zinc_all <- bind_rows(zinc_datasets)
+```
+
+```{r}
+#now filter zinc_all to only include the central 95% of the data, to make it easier to plot
+zinc_all_95 <- zinc_all %>%
+  filter(
+    WQ_MEAN_LOQ1 >= quantile(WQ_MEAN_LOQ1, 0.025, na.rm = TRUE),
+    WQ_MEAN_LOQ1 <= quantile(WQ_MEAN_LOQ1, 0.975, na.rm = TRUE)) %>%
+  mutate(
+    year = year(BIO_SAMPLE_DATE)
+  )
+
+#i want to add a column called 'year'
+
+```
+
+```{r}
+#now i want to plot a line graph for each  BIO_SITE_ID, faceted by each region, using ggplot2
+ggplot(zinc_all_95, 
+       aes(
+         x = BIO_SAMPLE_DATE,
+         y = WQ_MEAN_LOQ1,
+         group = BIO_SITE_ID
+       )) +
+  geom_line() +
+  facet_wrap(~ region) +
+  labs(
+    x = "Sample date",
+    y = "Mean LOQ",
+    title = "Zinc concentrations over time by site and region"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+#i want to plot all of the points over time
+ggplot(zinc_all_95, 
+       aes(
+         x = BIO_SAMPLE_DATE,
+         y = WQ_MEAN_LOQ1,
+         group = year
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA) +
+  labs(
+    x = "Sample date",
+    y = "Zinc concentration (µg/L)",
+    title = "Zinc concentrations in UK freshwaters"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+p <- ggplot(
+  zinc_all_95,
+  aes(
+    x = BIO_SAMPLE_DATE,
+    y = WQ_MEAN_LOQ1,
+    group = year)
+) +
+  geom_point(alpha = 0.2) +
+  geom_boxplot(outlier.shape = NA) +
+  labs(
+    x = "Sample date",
+    y = "Zinc concentration (µg/L)",
+    title = "Zinc concentrations in UK freshwaters"
+  ) +
+  theme_minimal()
+
+ggplotly(p, tooltip = "text")
+```
+```{r}
+```
+

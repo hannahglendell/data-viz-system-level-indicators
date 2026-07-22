@@ -1,0 +1,19 @@
+---
+title: "invertebrate taxa"
+output: html_document
+---
+
+```{r}
+#read in the taxin abundance datasets
+
+anglian_taxa <- read.csv(here("data", "Chempop", "taxon abundance", "cp_an_minv_taxonabundance_19800916-20181128.csv"))
+
+midlands_taxa <- read.csv(here("data", "Chempop", "taxon abundance", "cp_mi_minv_taxonabundance_19750502-20181127.csv"))
+
+northeast_taxa <- read.csv(here("data", "Chempop", "taxon abundance", "cp_ne_minv_taxonabundance_19750414-20181116.csv"))
+
+southwest_taxa <- read.csv(here("data", "Chempop", "taxon abundance", "cp_sw_minv_taxonabundance_19740618-20181122.csv"))
+
+thames_taxa <- read.csv(here("data", "Chempop", "taxon abundance", "cp_th_minv_taxonabundance_19741119-20181207.csv"))
+```
+
