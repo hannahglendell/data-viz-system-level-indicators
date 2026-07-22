@@ -22,19 +22,6 @@ library(ggridges)
 file <- here("data", "Pharmaceuticals infomation_V3.xlsx")
 
 #to find out which sheets have data on the site WAV120
-#excel_sheets(file) %>%
- # keep(~{
- #   dat <- read_excel(file, sheet = .x)
- #   "WAV120" %in% dat$Sample_Site_ID
- # })
-
-#store these sheets that have data on WAV120 in an object called site_sheets
-#site_sheets <- excel_sheets(file) %>%
- # keep(~{
- #   dat <- read_excel(file, sheet = .x)
- #   "WAV120" %in% dat$Sample_Site_ID
- # })
-
 #this code doesn't assume that every sheet has the column Sample_Site_ID
 site_sheets <- excel_sheets(file) %>%
   keep(~{
@@ -72,7 +59,7 @@ wav120_data <- map_dfr(site_sheets, ~{
     mutate(
       Sample_datetime = as.POSIXct(Sample_datetime), #ensure that datetime is stored as datetime
       sheet = .x
-    )
+    )  
 
 })
 
@@ -95,7 +82,13 @@ wav120_yearly_means <- wav120_data %>%
     mean_concentration = mean(Concentration, na.rm = TRUE),
     n_samples = n(),
     .groups = "drop"
-  )
+  ) %>%
+  mutate( #shorten the name of this chemical
+    Compound_Name = if_else(
+      Compound_Name == "Fipronil sulfon (M & B 46136)",
+      "Fipronil sulfon",
+      Compound_Name
+    ))
 
 #now try with median values instead
 #wav120_yearly_medians <- wav120_data %>%
@@ -135,7 +128,7 @@ heatmap1 <- ggplot(
   theme(
     axis.title.x = element_text(size = 20, face = "bold"),
     axis.title.y = element_text(size = 20, face = "bold"),
-    axis.text = element_text( size = 20),
+    axis.text = element_text( size = 24, face = "bold"),
     legend.title = element_text(size = 20, face = "bold"),
     legend.text = element_text(size = 18))
 
@@ -144,8 +137,8 @@ heatmap1
 ggsave(
   here("figures", "heatmap1.png"),
   plot = heatmap1,
-  width = 5,
-  height = 3,
+  width = 14,
+  height = 8,
   dpi = 300,
     bg = "#F4F5F1"
 )
@@ -192,7 +185,7 @@ heatmap2 <- ggplot(wav120_scaled_complete,
   theme(
     axis.title.x = element_text(size = 20, face = "bold"),
     axis.title.y = element_text(size = 20, face = "bold"),
-    axis.text = element_text( size = 20),
+    axis.text = element_text( size = 24, face = "bold"),
     legend.title = element_text(size = 20, face = "bold"),
     legend.text = element_text(size = 18))
 
@@ -201,8 +194,8 @@ heatmap2
 ggsave(
   here("figures", "heatmap2.png"),
   plot = heatmap2,
-  width = 5,
-  height = 3,
+  width = 14,
+  height = 8,
   dpi = 300,
     bg = "#F4F5F1"
 )
@@ -263,7 +256,7 @@ heatmap3 <- ggplot(wav120_yearly_means,
   theme(
     axis.title.x = element_text(size = 20, face = "bold"),
     axis.title.y = element_text(size = 20, face = "bold"),
-    axis.text = element_text( size = 20),
+    axis.text = element_text( size = 24, face = "bold"),
     legend.title = element_text(size = 20, face = "bold"),
     legend.text = element_text(size = 18))
 
@@ -272,8 +265,8 @@ heatmap3
 ggsave(
   here("figures", "heatmap3.png"),
   plot = heatmap3,
-  width = 5,
-  height = 3,
+  width = 14,
+  height = 8,
   dpi = 300,
     bg = "#F4F5F1"
 )

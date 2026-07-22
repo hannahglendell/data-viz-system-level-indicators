@@ -1,0 +1,792 @@
+---
+title: "Rshiny"
+output: html_document
+---
+
+```{r}
+library(shiny)
+library(bslib)
+library(dplyr)
+library(ggplot2)
+library(ggExtra)
+library(sf)
+library(leaflet)
+library(openxlsx)
+library(here)
+library(lubridate)
+library(plotly)
+library(patchwork)
+```
+
+```{r}
+#read in the dataset of imidacloprid
+
+#try reading in all of the datasets at once, as a excel spreadsheet
+#this reads in all of the sheets at once!
+file_in <- here("data", "Pharmaceuticals infomation_V3.xlsx")
+
+# Get the name of the sheets.
+f_sheets <- getSheetNames(file_in)
+ 
+# Read in the ibuprofen data
+imidacloprid <- read.xlsx(file_in, sheet = "Imidacloprid_LCMS")
+
+#store year as an integer
+imidacloprid$year <- as.integer(imidacloprid$year)
+
+#store datetime as datetime
+imidacloprid$Sample_datetime <- ymd_hms(imidacloprid$Sample_datetime)
+
+imidacloprid %>%
+  summarise(n_unique = n_distinct(Sample_Site_ID))
+
+```
+
+```{r}
+#read in the rainfall dataset - this was created from the 'extracting site rainfall data' script
+rainfall <- read.csv(here("data", "daily_rainfall_1km", "rainfall.csv"))
+
+#save the date as a date format
+rainfall$date <- as.Date(rainfall$date)
+```
+
+
+```{r}
+#i want the columns concentration, year, longitude and latitude. also convert the coordinates to the sf values so I can plot them
+
+imidacloprid_sf <- imidacloprid %>%
+  select(Concentration, year, Longitude, Latitude, Sample_Site_ID, Sample_datetime) %>% #select the columns that I want
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326) #%>% #converts coordinate column into a geometry column
+  #mutate(log_Concentration = log(Concentration))
+
+#because I am plotting by sample site ID, i need to remove sites where the site ID has been redacted. 
+#otherwise it gets really confusing with the same sample site ID have multiple coordinates
+imidacloprid_sf <- imidacloprid_sf %>%
+  filter(Sample_Site_ID != "REDACTED")
+
+#for use in another script, i want a list of unique sites and their coordinates
+#unique_sites <- imidacloprid_sf %>%
+ # dplyr::distinct(Sample_Site_ID, geometry)
+
+#save as st file in the data folder
+#st_write(unique_sites,here("data", "imidacloprid sites", "unique_sites.gpkg"),delete_dsn = TRUE)
+
+```
+
+############################################
+legend where the size of the points shows the number of samples at each site
+```{r}
+#to adjust the size of the point by how well sampled it is, need to count the number of obersvations at each site.
+site_counts <- imidacloprid_sf %>%
+  st_drop_geometry() %>%
+  count(Sample_Site_ID, name = "n_obs") %>% #count the number of observations at each site
+  left_join( #join these counts onto the imidacloprid_sf dataset
+    imidacloprid_sf %>%
+      group_by(Sample_Site_ID) %>%
+      summarise(geometry = st_union(geometry), .groups = "drop"),
+    by = "Sample_Site_ID"
+  ) %>%
+  st_as_sf() #convert into a geometry column
+
+
+#define the bins for the legend, and the radii of the points corresponding to the bins
+legend_df <- data.frame(
+  obs_bin = c("<10", "10–50", "50–100", "100–200",
+              "200–300", "300–400", "400+"),
+  radius = c(4, 6, 12, 14, 16, 18, 20)
+)
+
+#add these bins onto the site counts dataframe
+site_counts <- site_counts %>%
+  mutate(
+    obs_bin = cut(
+      n_obs,
+      breaks = c(0, 10, 50, 100, 200, 300, 400, Inf),
+      labels = legend_df$obs_bin,
+      right = FALSE
+    )
+  ) %>%
+  left_join(legend_df, by = "obs_bin")
+
+```
+
+```{r}
+#build a html legend
+legend_items <- paste0(
+  sprintf(
+    '<div style="display:flex;align-items:center;margin-bottom:6px;">
+       <div style="
+         width:%dpx;
+         height:%dpx;
+         border-radius:50%%;
+         background:blue;
+         opacity:0.7;
+         margin-right:8px;
+         flex-shrink:0;">
+       </div>
+       <span>%s</span>
+     </div>',
+    legend_df$radius,
+    legend_df$radius,
+    legend_df$obs_bin
+  ),
+  collapse = ""
+)
+
+legend_html <- paste0(
+  '<div style="background:white;padding:8px 10px;border-radius:4px;">
+     <strong>Number of samples</strong><br><br>',
+  legend_items,
+  '</div>'
+)
+```
+
+
+
+```{r}  
+
+ui <- fluidPage(
+
+  titlePanel("Imidacloprid Concentrations"),
+#controls the size of the left-hand column, which shows the map
+  fluidRow(
+    column(
+      width = 7,
+      leafletOutput("map", height = 500)
+    ),
+#controls the size of the right-hand column, which shows the timeseries plots
+    column(
+      width = 5,
+      plotlyOutput("timeseries", height = 700)
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  # store clicked site
+  selected_site <- reactiveVal(NULL)
+
+  # initialise map ONCE
+  output$map <- renderLeaflet({
+    leaflet(imidacloprid_sf) %>%
+      addProviderTiles(providers$CartoDB.Positron)
+  })
+
+  # handle clicks
+  observeEvent(input$map_marker_click, {
+    selected_site(input$map_marker_click$id)
+  })
+
+  # draw ALL points 
+  observe({
+    leafletProxy("map", data = site_counts) %>%
+      clearMarkers() %>%
+      clearControls() %>%
+      addCircleMarkers(
+        radius = ~radius,
+        stroke = FALSE,
+        fillColor = "blue",
+        fillOpacity = 0.7,
+        layerId = ~Sample_Site_ID,
+        popup = ~paste("<b>Site:</b>", Sample_Site_ID, "<br>",
+                       "<b>Samples:</b>", n_obs)
+        )%>%
+      addControl(
+    html = HTML(legend_html),
+    position = "bottomright"
+  )
+  })
+
+  # make a concentration plot for the selected site
+  site_data <- reactive({
+
+    req(selected_site())
+
+    imidacloprid_sf %>%
+      st_drop_geometry() %>%
+      filter(Sample_Site_ID == selected_site()) %>%
+      arrange(Sample_datetime)
+
+  })
+
+  #make a rainfall plot for the selected site
+  rain_data <- reactive({
+
+  req(selected_site())
+
+  dat <- rainfall %>%
+    filter(Sample_Site_ID == selected_site()) %>%
+    arrange(date)
+
+
+})
+  
+ output$timeseries <- renderPlotly({
+
+  req(selected_site())
+
+  p_rain <- plot_ly(
+    data = rain_data(),
+    x = ~date,
+    y = ~rainfall,
+    type = "bar",
+    marker = list(color = "steelblue"),
+    hovertemplate =
+      paste(
+        "<b>Date:</b> %{x}<br>",
+        "<b>Rainfall:</b> %{y:.1f} mm",
+        "<extra></extra>"
+      )
+  ) %>%
+    layout(
+      yaxis = list(title = "Rainfall (mm)")
+    )
+
+  p_conc <- plot_ly(
+    data = site_data(),
+    x = ~Sample_datetime,
+    y = ~Concentration,
+    type = "scatter",
+    mode = "lines+markers",
+    line = list(color = "black"),
+    marker = list(size = 5),
+    hovertemplate =
+      paste(
+        "<b>Date:</b> %{x}<br>",
+        "<b>Concentration:</b> %{y:.3f} µg/L",
+        "<extra></extra>"
+      )
+  ) %>%
+    layout(
+      title = paste("Site:", selected_site()),
+      xaxis = list(title = "Date"),
+      yaxis = list(
+        title = "Imidacloprid (µg/L)",
+        range = c(0.0002, 0.25)
+      )
+    )
+
+  subplot(
+    p_rain,
+    p_conc,
+    nrows = 2,
+    shareX = TRUE,
+    heights = c(0.5, 0.5),
+    titleY = TRUE
+  ) %>%
+    layout(
+      showlegend = FALSE,
+      hovermode = "x unified"
+    )
+
+})
+
+
+}
+
+shinyApp(ui, server)
+```
+
+###########################################################################
+legend by colour AND size
+the size of the point shows the median number of samples per year
+and the colour of the point shows for how many years we have data for
+```{r}
+#calculate the median number of samples per year at each site, and also the number of years that each site has been sampled.
+site_summaries <- imidacloprid_sf %>%
+  group_by(Sample_Site_ID, year) %>%
+  summarise(
+    annual_samples = n(),
+    .groups = "drop"
+  ) %>%
+  group_by(Sample_Site_ID) %>%
+  summarise(
+    median_annual_samples = median(annual_samples),
+    years_sampled = n_distinct(year),
+    .groups = "drop"
+  )
+
+
+
+#define the size of bins for the size of the point (median number of samples per year)
+size_legend_df <- data.frame(
+  sample_bin = c("1", "2–5", "6–10", "11–15", "16–20", "21–25", "26–29"),
+  radius = c(4, 6, 8, 10, 12, 16, 20)
+)
+
+#assign the bins to the site summaries
+site_summaries <- site_summaries %>%
+  mutate(
+    sample_bin = cut(
+      median_annual_samples,
+      breaks = c(0, 2, 6, 11, 16, 21, 26, Inf),
+      labels = size_legend_df$sample_bin,
+      right = FALSE
+    )
+  ) %>%
+  left_join(size_legend_df, by = "sample_bin")
+
+
+
+
+#define colour bins
+year_breaks <- c(0, 2, 4, 6, 8, 10, Inf)
+year_labels <- c("1", "2–3", "4–5", "6–7", "8–9", "10–11")
+
+site_summaries <- site_summaries %>%
+  mutate(
+    year_bin = cut(
+      years_sampled,
+      breaks = year_breaks,
+      labels = year_labels,
+      right = FALSE
+    )
+  )
+
+#create a palette
+pal <- colorFactor(
+  palette = "YlOrRd",
+  levels = year_labels
+)
+
+```
+
+
+```{r}
+#size legend
+legend_items_size <- paste0(
+  sprintf(
+    '<div style="display:flex;align-items:center;margin-bottom:6px;">
+       <div style="
+         width:%dpx;
+         height:%dpx;
+         border-radius:50%%;
+         background:grey;
+         opacity:0.7;
+         margin-right:8px;">
+       </div>
+       <span>%s</span>
+     </div>',
+    size_legend_df$radius,
+    size_legend_df$radius,
+    size_legend_df$sample_bin
+  ),
+  collapse = ""
+)
+
+legend_html_size <- paste0(
+  '<div style="background:white;padding:8px;border-radius:4px;">
+  <strong>Median samples per year</strong><br><br>',
+  legend_items_size,
+  '</div>'
+)
+
+
+#colour legend
+legend_items_colour <- paste0(
+  sprintf(
+    '<div style="display:flex;align-items:center;margin-bottom:4px;">
+       <div style="
+         width:18px;
+         height:18px;
+         background:%s;
+         margin-right:8px;">
+       </div>
+       <span>%s</span>
+     </div>',
+    pal(year_labels),
+    year_labels
+  ),
+  collapse = ""
+)
+
+legend_html_colour <- paste0(
+  '<div style="background:white;padding:8px;border-radius:4px;">
+  <strong>Number of years sampled</strong><br><br>',
+  legend_items_colour,
+  '</div>'
+)
+```
+
+
+this app has the new legend and just concentration, no rainfall
+
+```{r} 
+
+#thought: could I colour the points based on whether imidacloprid concentration is above or below a safe threshold?
+#or maybe add a line to the timseries graph, to show this threshold?
+ui <- fluidPage(
+
+  titlePanel("Imidacloprid Concentrations"),
+
+  fluidRow(
+    column(
+      width = 7,
+      leafletOutput("map", height = 500)
+    ),
+
+    column(
+      width = 5,
+      plotlyOutput("timeseries", height = 500)
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  # store clicked site
+  selected_site <- reactiveVal(NULL)
+
+  # initialise map ONCE
+  output$map <- renderLeaflet({
+    leaflet(imidacloprid_sf) %>%
+      addProviderTiles(providers$CartoDB.Positron)
+  })
+
+  # handle clicks
+  observeEvent(input$map_marker_click, {
+    selected_site(input$map_marker_click$id)
+  })
+
+  # draw ALL points 
+  observe({
+    
+    leafletProxy("map", data = site_summaries) %>%
+  clearMarkers() %>%
+  clearControls() %>%
+  addCircleMarkers(
+    radius = ~radius,
+    fillColor = ~pal(year_bin),
+    fillOpacity = 0.8,
+    stroke = FALSE,
+    layerId = ~Sample_Site_ID,
+    popup = ~paste(
+      "<b>Site:</b>", Sample_Site_ID, "<br>",
+      "<b>Median annual samples:</b>", median_annual_samples, "<br>",
+      "<b>Years sampled:</b>", years_sampled
+    )
+  ) %>%
+  addControl(HTML(legend_html_size), position = "bottomright") %>%
+  addControl(HTML(legend_html_colour), position = "topright")
+    
+    
+    
+    
+    
+  })
+
+  # time series data for selected site
+  site_data <- reactive({
+
+    req(selected_site())
+
+    imidacloprid_sf %>%
+      st_drop_geometry() %>%
+      filter(Sample_Site_ID == selected_site()) %>%
+      arrange(Sample_datetime)
+
+  })
+
+  
+
+  # plot time series
+  output$timeseries <- renderPlotly({
+    
+
+    req(selected_site())
+
+    p <- ggplot(site_data(), aes(x = Sample_datetime,
+                           y = Concentration
+                           )) +
+   geom_line() +
+    geom_point(size = 1) +
+
+  scale_y_continuous(
+    limits = c(0.0002, 0.25),
+    breaks = c(0, 0.05, 0.1, 0.15, 0.20, 0.25)) +
+      labs(
+        title = paste("Site:", selected_site()),
+        x = "date",
+        y = "Imidacloprid concentration (ug/l)"
+      ) +
+      theme_bw()+
+  theme(
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14)
+  )
+    
+
+
+  })
+
+}
+
+shinyApp(ui, server)
+```
+
+trying out the new legend along with the rainfall plotted
+trying out with two check boxes
+```{r}  
+
+ui <- fluidPage(
+
+  titlePanel("Imidacloprid Concentrations"),
+#this is the size of the first column, which shows the map
+  fluidRow(
+    column(
+      width = 7,
+      leafletOutput("map", height = 500)
+    ),
+#this is the size of the second column, which shows the concentration and rainfall timeseries
+    column(
+      width = 5,
+      plotlyOutput("timeseries", height = 500),
+     checkboxInput(        #add a checkbox for MAc-EQS
+  "show_mac_eqs",
+  HTML(
+    "Show MAC-EQS (0.057 µg/L)<br>
+    <span style='font-size:90%; color:#666;'>
+      Short-term exposure threshold
+    </span>"
+  ),
+  value = FALSE
+),
+
+checkboxInput(
+  "show_aa_eqs",       #add a checkbox for AA-EQS
+  HTML(
+    "Show AA-EQS (0.0068 µg/L)<br>
+    <span style='font-size:90%; color:#666;'>
+      Long-term exposure threshold
+    </span>"
+  ),
+  value = FALSE
+)
+      
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  # store clicked site
+  selected_site <- reactiveVal(NULL)
+
+  # initialise map ONCE
+  output$map <- renderLeaflet({
+    leaflet(imidacloprid_sf) %>%
+      addProviderTiles(providers$CartoDB.Positron)
+  })
+
+  # handle clicks
+  observeEvent(input$map_marker_click, {
+    selected_site(input$map_marker_click$id)
+  })
+
+  # draw ALL points 
+  observe({
+leafletProxy("map", data = site_summaries) %>%
+  clearMarkers() %>%
+  clearControls() %>%
+  addCircleMarkers(
+    radius = ~radius,
+    fillColor = ~pal(year_bin),
+    fillOpacity = 0.8,
+    stroke = FALSE,
+    layerId = ~Sample_Site_ID,
+    popup = ~paste(
+      "<b>Site:</b>", Sample_Site_ID, "<br>",
+      "<b>Median samples per year:</b>", median_annual_samples, "<br>",
+      "<b>Number of years sampled:</b>", years_sampled
+    )
+  ) %>%
+  addControl(HTML(legend_html_size), position = "bottomright") %>%
+  addControl(HTML(legend_html_colour), position = "topright")
+  })
+
+  # make a concentration plot for the selected site
+  site_data <- reactive({
+
+    req(selected_site())
+
+    imidacloprid_sf %>%
+      st_drop_geometry() %>%
+      filter(Sample_Site_ID == selected_site()) %>%
+      arrange(Sample_datetime)
+
+  })
+
+  #make a rainfall plot for the selected site
+  rain_data <- reactive({
+
+  req(selected_site())
+
+  dat <- rainfall %>%
+    filter(Sample_Site_ID == selected_site()) %>%
+    arrange(date)
+
+
+})
+  
+ output$timeseries <- renderPlotly({
+
+  req(selected_site())
+
+   #make the rainfall plot for the selected site
+  p_rain <- plot_ly(
+    data = rain_data(),
+    x = ~date,
+    y = ~rainfall,
+    type = "bar",
+    marker = list(color = "steelblue"),
+    hovertemplate =
+      paste(
+        "<b>Date:</b> %{x}<br>",
+        "<b>Rainfall:</b> %{y:.1f} mm",
+        "<extra></extra>"
+      )
+  ) %>%
+    layout(
+      yaxis = list(title = "Rainfall (mm)")
+    )
+#make a concentration plot for the selected site
+ p_conc <- plot_ly(
+  data = site_data(),
+  x = ~Sample_datetime,
+  y = ~Concentration,
+  type = "scatter",
+  mode = "lines+markers",
+  line = list(color = "black"),
+  marker = list(size = 5),
+  hovertemplate =
+    paste(
+      "<b>Date:</b> %{x}<br>",
+      "<b>Concentration:</b> %{y:.3f} µg/L",
+      "<extra></extra>"
+    )
+)
+
+# Base layout
+p_conc <- p_conc %>%
+  layout(
+    title = paste("Site:", selected_site()),
+    xaxis = list(title = "Date"),
+    yaxis = list(
+      title = "Imidacloprid (µg/L)",
+      range = c(0.0002, 0.25)
+    )
+  )
+
+# Add MAC-EQS line if requested
+shapes <- list()
+annotations <- list()
+
+# MAC-EQS
+if (input$show_mac_eqs) {
+  
+#plots the line
+  shapes <- append(shapes, list(
+    list(
+      type = "line",
+      xref = "paper",
+      x0 = 0,
+      x1 = 1,
+      y0 = 0.057,
+      y1 = 0.057,
+      line = list(
+        color = "red",
+        dash = "dash",
+        width = 2
+      )
+    )
+  ))
+  
+#adds an annotation to the line
+  annotations <- append(annotations, list(
+    list(
+      x = 0.98,
+      xref = "paper",
+      y = 0.065,
+      yref = "y",
+      text = "MAC-EQS",
+      showarrow = FALSE,
+      xanchor = "right",
+      font = list(color = "red")
+    )
+  ))
+}
+
+# AA-EQS
+if (input$show_aa_eqs) {
+
+  #plots the line, in green
+  shapes <- append(shapes, list(
+    list(
+      type = "line",
+      xref = "paper",
+      x0 = 0,
+      x1 = 1,
+      y0 = 0.0068,
+      y1 = 0.0068,
+      line = list(
+        color = "darkgreen",
+        dash = "dash",
+        width = 2
+      )
+    )
+  ))
+
+  #adds an annotation to the line
+  annotations <- append(annotations, list(
+    list(
+      x = 0.98,
+      xref = "paper",
+      y = 0.012,
+      yref = "y",
+      text = "AA-EQS",
+      showarrow = FALSE,
+      xanchor = "right",
+      font = list(color = "darkgreen")
+    )
+  ))
+}
+
+# Apply both lines if both boxes are ticked
+p_conc <- p_conc %>%
+  layout(
+    shapes = shapes,
+    annotations = annotations
+  )
+
+  
+#adds the vertical line to scroll along the x-axis
+  subplot(
+    p_rain,
+    p_conc,
+    nrows = 2,
+    shareX = TRUE,
+    heights = c(0.5, 0.5),
+    titleY = TRUE
+  ) %>%
+    layout(
+      showlegend = FALSE,
+      hovermode = "x unified"
+    )
+
+})
+
+
+}
+
+#display the shiny app
+shinyApp(ui, server)
+```
+
+
+
+
+
+
+

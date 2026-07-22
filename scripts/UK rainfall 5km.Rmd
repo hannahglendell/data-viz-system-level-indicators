@@ -17,7 +17,18 @@ library(terra)
 library(viridisLite)
 ```
 
+```{r}
+#read in the hydrometric areas dataset
+hydrometric_areas <- st_read(
+  here("data", "hydrometric_areas_with_coastline", "data", "hyd_areas.shp")
+)
+#this plots the hydrometric areas
+#plot(st_geometry(hydrometric_areas))
 
+#transform the longitude/latitude coodinates into a coordinate reference system
+hydrometric_areas_rain <- st_transform(hydrometric_areas, crs(rainfall_2025))
+
+```
 
 ```{r}
 #read in all the rainfall data from different years
@@ -65,20 +76,6 @@ rainfall_2020 <- clean_rainfall(rainfall_2020)
 ```
 
 ```{r}
-#read in the hydrometric areas dataset
-hydrometric_areas <- st_read(
-  here("data", "hydrometric_areas_with_coastline", "data", "hyd_areas.shp")
-)
-#this plots the hydrometric areas
-#plot(st_geometry(hydrometric_areas))
-
-#transform the longitude/latitude coodinates into a coordinate reference system
-hydrometric_areas_rain <- st_transform(hydrometric_areas, crs(rainfall_2025))
-
-```
-
-
-```{r}
 # fixed colour scale across all months
 #set breaks, from 0 - 700, by increments size 100
 brks <- c(seq(0, 700, by = 100), Inf)
@@ -121,7 +118,7 @@ ui <- fluidPage(
     ),
 
     mainPanel(
-      plotOutput("rain_map", height = "500px", width = "100%")
+      plotOutput("rain_map", height = "500px")
     )
   )
 )
@@ -140,19 +137,9 @@ server <- function(input, output, session) {
 
     plot(
       r,
-      axes = FALSE,
-      xlab = "",
-      ylab = "",
       main = paste("Rainfall:", input$month, input$year),
       col = viridis(50),
-      breaks = brks,
-      plg = list(
-    title = "Rainfall (mm)",
-    cex = 1.4,
-    title.cex = 1.6
-  )
-  
-  
+      breaks = brks
     )
 
     plot(

@@ -11,6 +11,7 @@ library(htmlwidgets)
 ```
 
 ```{r}
+#this uses igraph
 #creat the graph from a a list of edges - literally listing the sources and the targets
 links <- data.frame(
     source=c("cats and dogs","handwashing", "farming", "wwTW", "cats and dogs","farming", "rivers", "farming", "crops"),
@@ -35,6 +36,7 @@ plot(graph_from_adjacency_matrix(adj))
 #this works fine but it is a bit ugly and it is not interactive
 ```
 ```{r}
+#networkD3 package
 #now make an interactive version of this network graph
 #but you can't have a directed graph using this package
 p <- simpleNetwork(links, height="100px", width="100px",        
@@ -53,17 +55,18 @@ p <- simpleNetwork(links, height="100px", width="100px",
 p
 
 
-# save the widget
- #saveWidget(
-  #p,
- # file = here("network graphs", "network.html")
-#)
+ #save the widget
+ saveWidget(
+  p,
+  file = here("scripts", "network graphs", "network.html")
+)
 ```
 
 
 
 
 ```{r}
+#this uses visNetwork
 #try out a different package, called visNetwork
 # Edge list
 links <- data.frame(
@@ -115,9 +118,9 @@ directed_network <- visNetwork(nodes, edges, height = "600px", width = "100%") %
 
 directed_network
 
-# saveWidget(
-#  directed_network,
-#  file = here("network graphs", "directed network.html")
-#) 
+ saveWidget(
+ directed_network,
+ file = here("scripts", "network graphs", "directed network.html")
+) 
 ```
 

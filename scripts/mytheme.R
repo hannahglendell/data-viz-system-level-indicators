@@ -10,3 +10,4 @@ my_theme <- function() {
       strip.text = element_text(face = "bold")
     )
 }
+
