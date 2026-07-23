@@ -1,0 +1,431 @@
+---
+title: "updated chempop"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(here)
+library(ggplot2)
+library(plotly)
+library(lme4)
+library(sf)
+library(leaflet)
+library(shiny)
+library(gganimate)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggmap)
+library(osmdata)
+```
+
+```{r}
+#read in the dataset
+chempop <- read.csv(here("data", "Chempop", "updated chempop", "river_health_atlas_analysis_ready.csv"))
+
+colnames(chempop)
+
+```
+
+```{r}
+chempop <- chempop %>%
+  select(assemblage, sample_id, sample_date, sample_year, site_id, bio_site_id, site_label, sample_method, analysis_id, integration_unit, catchment, water_body, wfd_waterbody_id, reporting_area, easting, northing, longitude, latitude, taxon_richness, abundance_total, taxon_record_count, metric_count, metric_value_count, ept_taxon_richness, zinc_total_mean_6mo, copper_total_mean_6mo, cadmium_mean_6mo, chromium_mean_6mo, lead_mean_6mo, mercury_mean_6mo, nickel_mean_6mo, ph_mean_6mo, water_temperature_c_mean_6mo) %>% #select the columns that i want
+  mutate(sample_date = as.Date(sample_date)) %>% #make sure date is stored as a date
+  filter(sample_date >= as.Date("2000-01-01")) %>% #filter for dates from 2000 onwards
+filter(
+    zinc_total_mean_6mo <= quantile(zinc_total_mean_6mo, 0.95, na.rm = TRUE),
+    copper_total_mean_6mo <= quantile(copper_total_mean_6mo, 0.95, na.rm = TRUE)) #focus on the first 95% of data to make it easier to plot
+
+
+chempop <- chempop %>%
+  st_as_sf(
+    coords = c("easting", "northing"),
+    crs = 27700
+  ) %>%
+  st_transform(4326)
+  
+```
+
+```{r}
+ggplot(chempop, 
+       aes(
+         x = sample_date,
+         y = zinc_total_mean_6mo
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Sample date",
+    y = "Zinc concentration in previous 6 months (µg/L)",
+    title = "Zinc concentrations in UK freshwaters"
+  ) +
+  theme_minimal()
+
+ggplot(chempop, 
+       aes(
+         x = sample_date,
+         y = copper_total_mean_6mo
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "Sample date",
+    y = "copper concentration in previous 6 months (µg/L)",
+    title = "copper concentrations in UK freshwaters"
+  ) +
+  theme_minimal()
+
+
+ggplot(chempop, 
+       aes(
+         x = zinc_total_mean_6mo,
+         y = taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "zinc concentration previous 6 months",
+    y = "taxon ricness",
+    title = ""
+  ) +
+  theme_minimal()
+
+ggplot(chempop, 
+       aes(
+         x = copper_total_mean_6mo,
+         y = taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "copper concentration previous 6 months",
+    y = "taxon ricness",
+    title = ""
+  ) +
+  theme_minimal()
+
+ggplot(chempop, 
+       aes(
+         x = zinc_total_mean_6mo,
+         y = ept_taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "zinc concentration previous 6 months",
+    y = "ept taxon ricness",
+    title = ""
+  ) +
+  theme_minimal()
+
+ggplot(chempop, 
+       aes(
+         x = copper_total_mean_6mo,
+         y = ept_taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(
+    x = "copper concentration previous 6 months",
+    y = "ept taxon ricness",
+    title = ""
+  ) +
+  theme_minimal()
+
+
+
+ggplot(chempop, 
+       aes(
+         x = sample_date,
+         y = taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +  
+  labs(
+    x = "sample date",
+    y = "taxon ricness",
+    title = ""
+  ) +
+  theme_minimal() 
+
+ggplot(chempop, 
+       aes(
+         x = sample_date,
+         y = ept_taxon_richness
+       )) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = TRUE) +
+   labs(
+    x = "sample_date",
+    y = "ept taxon ricness",
+    title = ""
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+lm1 <- lm(zinc_total_mean_6mo ~ sample_date, data = chempop)
+summary(lm1)
+
+lm2 <- lm(copper_total_mean_6mo ~ sample_date, data = chempop)
+summary(lm2)
+```
+
+```{r}
+#calculate the mean concentration for each site for each year
+chempop_summaries <- chempop %>%
+  group_by(sample_year, site_id) %>%
+  summarise(
+    mean_zinc = mean(zinc_total_mean_6mo, na.rm = TRUE),
+    mean_copper = mean(copper_total_mean_6mo, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#one site in 2023 is stored as MULTIPOINT instead of POINT and this causes problems later. this fixes it:
+chempop_summaries <- chempop_summaries %>%
+  st_cast("POINT")
+
+```
+
+```{r}
+ui <- fluidPage(
+
+  titlePanel("Mean Zinc Concentrations"),
+
+  sidebarLayout(
+
+    sidebarPanel(
+      selectInput(
+        inputId = "sample_year",
+        label = "Select year:",
+        choices = sort(unique(chempop_summaries$sample_year)),
+        selected = min(chempop_summaries$sample_year)
+      )
+    ),
+
+    mainPanel(
+      leafletOutput("zinc_map", height = 700)
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  # Filter the data based on the selected year
+  selected_year_data <- reactive({
+
+    chempop_summaries %>%
+      filter(.data$sample_year == input$sample_year)
+
+  })
+
+  # Initialise the map
+  output$zinc_map <- renderLeaflet({
+
+    leaflet() %>%
+      addProviderTiles(providers$CartoDB.Positron)
+
+  })
+
+  # Update the map whenever the year changes
+  observe({
+
+    data <- selected_year_data()
+
+    pal <- colorNumeric(
+      palette = "YlOrRd",
+      domain = data$mean_zinc,
+      na.color = "transparent"
+    )
+
+    leafletProxy("zinc_map", data = data) %>%
+
+      clearMarkers() %>%
+      clearControls() %>%
+
+      addCircleMarkers(
+        radius = 6,
+        fillColor = ~pal(mean_zinc),
+        fillOpacity = 0.8,
+        color = "black",
+        weight = 1,
+        popup = ~paste0(
+          "<b>Site:</b> ", site_id,
+          "<br><b>Year:</b> ", sample_year,
+          "<br><b>Mean zinc:</b> ",
+          round(mean_zinc, 4),
+          " µg/L"
+        )
+      ) %>%
+
+      addLegend(
+        pal = pal,
+        values = ~mean_zinc,
+        title = "Mean zinc (µg/L)",
+        position = "bottomright"
+      )
+
+  })
+}
+
+shinyApp(ui, server)
+```
+
+```{r}
+uk <- ne_countries(
+  country = "United Kingdom",
+  returnclass = "sf"
+)
+
+uk <- st_transform(
+  uk,
+  st_crs(chempop_summaries)
+)
+
+
+uk_bbox <- c(
+  xmin = -6,
+  ymin = 49.5,
+  xmax = 2,
+  ymax = 59
+)
+
+roads <- opq(
+  bbox = uk_bbox
+) %>%
+
+  add_osm_feature(
+    key = "highway",
+    value = c(
+      "motorway",
+      "trunk",
+      "primary",
+      "secondary"
+    )
+  ) %>%
+
+  osmdata_sf()
+
+uk_roads <- roads$osm_lines
+```
+
+
+```{r}
+p <- ggplot() +
+
+  # Roads
+  geom_sf(
+    data = uk_roads,
+    aes(
+      geometry = geometry
+    ),
+    linewidth = 0.2,
+    alpha = 0.5
+  ) +
+
+  # Zinc points
+  geom_sf(
+    data = chempop_summaries,
+    aes(
+      colour = mean_zinc
+    ),
+    size = 2,
+    alpha = 0.8
+  ) +
+
+  scale_colour_distiller(
+    palette = "YlOrRd",
+    direction = 1,
+    name = "Mean zinc (µg/L)",
+    limits = range(
+      chempop_summaries$mean_zinc,
+      na.rm = TRUE
+    )
+  ) +
+
+  labs(
+    title = "Mean zinc concentrations: {frame_time}"
+  ) +
+
+  theme_minimal() +
+
+  transition_time(sample_year) +
+
+  ease_aes("linear")
+
+
+animation <- animate(
+  p,
+  fps = 2,
+  duration = 10,
+  width = 1000,
+  height = 700,
+  renderer = gifski_renderer()
+)
+
+animation
+```
+
+
+```{r}
+p <- ggplot() +
+
+  # UK basemap
+  geom_sf(
+    data = uk,
+    fill = "grey95",
+    colour = "grey40"
+  ) +
+
+  # Zinc sampling sites
+  geom_sf(
+    data = chempop_summaries,
+    aes(
+      colour = mean_zinc
+    ),
+    size = 2,
+    alpha = 0.8
+  ) +
+
+  scale_colour_distiller(
+    palette = "YlOrRd",
+    direction = 1,
+    name = "Mean zinc (µg/L)",
+    limits = range(
+      chempop_summaries$mean_zinc,
+      na.rm = TRUE
+    )
+  ) +
+
+  labs(
+    title = "Mean zinc concentrations: {frame_time}"
+  ) +
+
+  theme_minimal() +
+
+  transition_time(sample_year) +
+
+  ease_aes("linear")
+
+
+animation <- animate(
+  p,
+  fps = 2,
+  duration = 10,
+  width = 800,
+  height = 700,
+  renderer = gifski_renderer()
+)
+
+
+animation
+```
+
+
+
+
+
+
+
