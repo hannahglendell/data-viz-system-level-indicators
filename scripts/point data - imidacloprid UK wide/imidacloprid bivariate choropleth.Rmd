@@ -220,5 +220,5 @@ leaflet(site_summaries) |>
     legend_html,
     position = "bottomright"
   )
-```
+``` 
 

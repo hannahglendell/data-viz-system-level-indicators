@@ -37,6 +37,9 @@ imidacloprid$year <- as.integer(imidacloprid$year)
 #store datetime as datetime
 imidacloprid$Sample_datetime <- ymd_hms(imidacloprid$Sample_datetime)
 
+imidacloprid %>%
+  summarise(n_unique = n_distinct(Sample_Site_ID))
+
 ```
 
 ```{r}
@@ -522,7 +525,7 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
-
+INTEGRATING VISUALISATIONS TOGETHER
 trying out the new legend along with the rainfall plotted
 trying out with two check boxes
 ```{r}  
@@ -656,7 +659,8 @@ leafletProxy("map", data = site_summaries) %>%
   type = "scatter",
   mode = "lines+markers",
   line = list(color = "black"),
-  marker = list(size = 5, color = "black"),
+   marker = list(size = 5, color = "black"),
+  marker = list(size = 5),
   hovertemplate =
     paste(
       "<b>Date:</b> %{x}<br>",
