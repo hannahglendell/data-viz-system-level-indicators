@@ -24,7 +24,7 @@ library(osmdata)
 #read in the dataset
 chempop <- read.csv(here("data", "Chempop", "updated chempop", "river_health_atlas_analysis_ready.csv"))
 
-colnames(chempop)
+#colnames(chempop)
 
 ```
 
@@ -32,10 +32,8 @@ colnames(chempop)
 chempop <- chempop %>%
   select(assemblage, sample_id, sample_date, sample_year, site_id, bio_site_id, site_label, sample_method, analysis_id, integration_unit, catchment, water_body, wfd_waterbody_id, reporting_area, easting, northing, longitude, latitude, taxon_richness, abundance_total, taxon_record_count, metric_count, metric_value_count, ept_taxon_richness, zinc_total_mean_6mo, copper_total_mean_6mo, cadmium_mean_6mo, chromium_mean_6mo, lead_mean_6mo, mercury_mean_6mo, nickel_mean_6mo, ph_mean_6mo, water_temperature_c_mean_6mo) %>% #select the columns that i want
   mutate(sample_date = as.Date(sample_date)) %>% #make sure date is stored as a date
-  filter(sample_date >= as.Date("2000-01-01")) %>% #filter for dates from 2000 onwards
-filter(
-    zinc_total_mean_6mo <= quantile(zinc_total_mean_6mo, 0.95, na.rm = TRUE),
-    copper_total_mean_6mo <= quantile(copper_total_mean_6mo, 0.95, na.rm = TRUE)) #focus on the first 95% of data to make it easier to plot
+  filter(sample_date >= as.Date("2000-01-01")) #filter for dates from 2000 onwards
+
 
 
 chempop <- chempop %>%
@@ -43,139 +41,248 @@ chempop <- chempop %>%
     coords = c("easting", "northing"),
     crs = 27700
   ) %>%
-  st_transform(4326)
+  st_transform(4326) %>% 
+mutate(
+
+    zinc_total_mean_6mo = if_else(
+      zinc_total_mean_6mo >
+        quantile(
+          zinc_total_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      zinc_total_mean_6mo
+    ),
+
+    copper_total_mean_6mo = if_else(
+      copper_total_mean_6mo >
+        quantile(
+          copper_total_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      copper_total_mean_6mo
+    ),
+
+    cadmium_mean_6mo = if_else(
+      cadmium_mean_6mo >
+        quantile(
+          cadmium_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      cadmium_mean_6mo
+    ),
+
+    chromium_mean_6mo = if_else(
+      chromium_mean_6mo >
+        quantile(
+          chromium_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      chromium_mean_6mo
+    ),
+
+    lead_mean_6mo = if_else(
+      lead_mean_6mo >
+        quantile(
+          lead_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      lead_mean_6mo
+    ),
+
+    mercury_mean_6mo = if_else(
+      mercury_mean_6mo >
+        quantile(
+          mercury_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      mercury_mean_6mo
+    ),
+
+    nickel_mean_6mo = if_else(
+      nickel_mean_6mo >
+        quantile(
+          nickel_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      nickel_mean_6mo
+    ),
+    water_temperature_c_mean_6mo = if_else(
+      water_temperature_c_mean_6mo >
+        quantile(
+          water_temperature_c_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      water_temperature_c_mean_6mo
+    ),
+    ph_mean_6mo = if_else(
+      ph_mean_6mo >
+        quantile(
+          ph_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      ph_mean_6mo
+    )
+
+  )
   
 ```
 
+
 ```{r}
-ggplot(chempop, 
-       aes(
-         x = sample_date,
-         y = zinc_total_mean_6mo
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "Sample date",
-    y = "Zinc concentration in previous 6 months (µg/L)",
-    title = "Zinc concentrations in UK freshwaters"
-  ) +
-  theme_minimal()
+# Variables available for selection
+variable_choices <- c(
 
-ggplot(chempop, 
-       aes(
-         x = sample_date,
-         y = copper_total_mean_6mo
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "Sample date",
-    y = "copper concentration in previous 6 months (µg/L)",
-    title = "copper concentrations in UK freshwaters"
-  ) +
-  theme_minimal()
+  "Zinc" = "zinc_total_mean_6mo",
+  "Copper" = "copper_total_mean_6mo",
+  "Cadmium" = "cadmium_mean_6mo",
+  "Chromium" = "chromium_mean_6mo",
+  "Lead" = "lead_mean_6mo",
+  "Mercury" = "mercury_mean_6mo",
+  "Nickel" = "nickel_mean_6mo",
+  "pH" = "ph_mean_6mo",
+  "Water temperature" = "water_temperature_c_mean_6mo",
+  "Sample date" = "sample_date",
+  "Taxon richness" = "taxon_richness",
+  "EPT taxon richness" = "ept_taxon_richness"
 
-
-ggplot(chempop, 
-       aes(
-         x = zinc_total_mean_6mo,
-         y = taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "zinc concentration previous 6 months",
-    y = "taxon ricness",
-    title = ""
-  ) +
-  theme_minimal()
-
-ggplot(chempop, 
-       aes(
-         x = copper_total_mean_6mo,
-         y = taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "copper concentration previous 6 months",
-    y = "taxon ricness",
-    title = ""
-  ) +
-  theme_minimal()
-
-ggplot(chempop, 
-       aes(
-         x = zinc_total_mean_6mo,
-         y = ept_taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "zinc concentration previous 6 months",
-    y = "ept taxon ricness",
-    title = ""
-  ) +
-  theme_minimal()
-
-ggplot(chempop, 
-       aes(
-         x = copper_total_mean_6mo,
-         y = ept_taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-  labs(
-    x = "copper concentration previous 6 months",
-    y = "ept taxon ricness",
-    title = ""
-  ) +
-  theme_minimal()
-
-
-
-ggplot(chempop, 
-       aes(
-         x = sample_date,
-         y = taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +  
-  labs(
-    x = "sample date",
-    y = "taxon ricness",
-    title = ""
-  ) +
-  theme_minimal() 
-
-ggplot(chempop, 
-       aes(
-         x = sample_date,
-         y = ept_taxon_richness
-       )) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", se = TRUE) +
-   labs(
-    x = "sample_date",
-    y = "ept taxon ricness",
-    title = ""
-  ) +
-  theme_minimal()
-
+)
 ```
 
-```{r}
-lm1 <- lm(zinc_total_mean_6mo ~ sample_date, data = chempop)
-summary(lm1)
 
-lm2 <- lm(copper_total_mean_6mo ~ sample_date, data = chempop)
-summary(lm2)
+```{r}
+ui <- fluidPage(
+
+  titlePanel("Chemical Relationships"),
+
+  sidebarLayout(
+
+    sidebarPanel(
+
+      selectInput(
+        inputId = "x_variable",
+        label = "Select x variable:",
+        choices = variable_choices,
+        selected = "zinc_total_mean_6mo"
+      ),
+
+      selectInput(
+        inputId = "y_variable",
+        label = "Select y variable:",
+        choices = variable_choices,
+        selected = "copper_total_mean_6mo"
+      )
+
+    ),
+
+    mainPanel(
+
+      plotOutput(
+        "scatterplot",
+        height = 700
+      )
+
+    )
+
+  )
+
+)
+
+server <- function(input, output, session) {
+
+  output$scatterplot <- renderPlot({
+
+    ggplot(
+
+      chempop,
+
+      aes(
+        x = .data[[input$x_variable]],
+        y = .data[[input$y_variable]]
+      )
+
+    ) +
+
+      geom_point(
+        alpha = 0.6
+      ) +
+
+      geom_smooth(
+        method = "lm",
+        se = TRUE
+      ) +
+
+      labs(
+
+        x = names(variable_choices)[
+          variable_choices == input$x_variable
+        ],
+
+        y = names(variable_choices)[
+          variable_choices == input$y_variable
+        ],
+
+        title = paste(
+
+          names(variable_choices)[
+            variable_choices == input$y_variable
+          ],
+
+          "vs",
+
+          names(variable_choices)[
+            variable_choices == input$x_variable
+          ]
+
+        )
+
+      ) +
+
+      theme_minimal()
+
+  })
+
+}
+
+shinyApp(ui, server)
 ```
 
+
+
+Making an animated Rshiny app to show mean annual concentration at each site over time
+
 ```{r}
+
+
+chempop_filtered <- chempop %>% 
+  #filter(
+   # zinc_total_mean_6mo <= quantile(zinc_total_mean_6mo, 0.95, na.rm = TRUE),
+    #copper_total_mean_6mo <= quantile(copper_total_mean_6mo, 0.95, na.rm = TRUE)) %>% #focus on the first 95% of data to make it easier to plot
+  select(assemblage, sample_id, sample_date, sample_year, site_id, geometry, zinc_total_mean_6mo, copper_total_mean_6mo) %>%
+  filter(
+    !(is.na(zinc_total_mean_6mo) &
+      is.na(copper_total_mean_6mo)))
+
+
 #calculate the mean concentration for each site for each year
-chempop_summaries <- chempop %>%
+chempop_summaries <- chempop_filtered %>%
   group_by(sample_year, site_id) %>%
   summarise(
     mean_zinc = mean(zinc_total_mean_6mo, na.rm = TRUE),
@@ -189,194 +296,270 @@ chempop_summaries <- chempop_summaries %>%
 
 ```
 
+
+
+ now I'm trying things with animations
+ 
+ 
+```{r}
+#defines the ranges to be used for the legend
+zinc_range <- range(
+  chempop_summaries$mean_zinc,
+  na.rm = TRUE
+)
+
+copper_range <- range(
+  chempop_summaries$mean_copper,
+  na.rm = TRUE
+)
+```
+ 
+ 
+ 
 ```{r}
 ui <- fluidPage(
 
-  titlePanel("Mean Zinc Concentrations"),
+  titlePanel("Mean Metal Concentrations"),
 
   sidebarLayout(
-
     sidebarPanel(
-      selectInput(
-        inputId = "sample_year",
-        label = "Select year:",
-        choices = sort(unique(chempop_summaries$sample_year)),
-        selected = min(chempop_summaries$sample_year)
-      )
+
+  sliderInput(
+    inputId = "sample_year",
+    label = "Select year:",
+    min = min(chempop_summaries$sample_year, na.rm = TRUE),
+    max = max(chempop_summaries$sample_year, na.rm = TRUE),
+    value = min(chempop_summaries$sample_year, na.rm = TRUE),
+    step = 1,
+    sep = "",
+    animate = animationOptions(
+      interval = 1000,
+      loop = TRUE
+    )
+  ),
+
+  selectInput(
+    inputId = "compound",
+    label = "Select metal:",
+    choices = c(
+      "Zinc" = "mean_zinc",
+      "Copper" = "mean_copper"
     ),
+    selected = "mean_zinc"
+  )
+
+)
+    ,
 
     mainPanel(
-      leafletOutput("zinc_map", height = 700)
+
+      leafletOutput(
+        "metal_map",
+        height = 700
+      )
+
     )
+
   )
+
 )
 
 server <- function(input, output, session) {
 
-  # Filter the data based on the selected year
+  # Fixed concentration ranges across ALL years
+  zinc_range <- range(
+    chempop_summaries$mean_zinc,
+    na.rm = TRUE
+  )
+
+  copper_range <- range(
+    chempop_summaries$mean_copper,
+    na.rm = TRUE
+  )
+
+
+  # Filter by selected year
   selected_year_data <- reactive({
 
     chempop_summaries %>%
-      filter(.data$sample_year == input$sample_year)
 
-  })
-
-  # Initialise the map
-  output$zinc_map <- renderLeaflet({
-
-    leaflet() %>%
-      addProviderTiles(providers$CartoDB.Positron)
-
-  })
-
-  # Update the map whenever the year changes
-  observe({
-
-    data <- selected_year_data()
-
-    pal <- colorNumeric(
-      palette = "YlOrRd",
-      domain = data$mean_zinc,
-      na.color = "transparent"
-    )
-
-    leafletProxy("zinc_map", data = data) %>%
-
-      clearMarkers() %>%
-      clearControls() %>%
-
-      addCircleMarkers(
-        radius = 6,
-        fillColor = ~pal(mean_zinc),
-        fillOpacity = 0.8,
-        color = "black",
-        weight = 1,
-        popup = ~paste0(
-          "<b>Site:</b> ", site_id,
-          "<br><b>Year:</b> ", sample_year,
-          "<br><b>Mean zinc:</b> ",
-          round(mean_zinc, 4),
-          " µg/L"
-        )
-      ) %>%
-
-      addLegend(
-        pal = pal,
-        values = ~mean_zinc,
-        title = "Mean zinc (µg/L)",
-        position = "bottomright"
+      filter(
+        sample_year == input$sample_year
       )
 
   })
+
+
+  # Initialise map
+  output$metal_map <- renderLeaflet({
+
+    leaflet() %>%
+
+      addProviderTiles(
+        providers$CartoDB.Positron
+      )
+
+  })
+
+
+  # Update map
+observe({
+
+  data <- selected_year_data()
+
+
+  # Select concentration column
+  concentration <- data[[input$compound]]
+
+
+  # Remove NA and NaN values
+  valid <- !is.na(concentration) & !is.nan(concentration)
+
+  data <- data[valid, ]
+
+  concentration <- concentration[valid]
+
+
+  # Create a fixed colour palette
+  pal <- if (input$compound == "mean_zinc") {
+
+    colorNumeric(
+      palette = "YlOrRd",
+      domain = zinc_range,
+      na.color = "transparent"
+    )
+
+  } else {
+
+    colorNumeric(
+      palette = "YlOrRd",
+      domain = copper_range,
+      na.color = "transparent"
+    )
+
+  }
+
+
+  # Get readable metal name
+  metal_name <- ifelse(
+
+    input$compound == "mean_zinc",
+
+    "Zinc",
+
+    "Copper"
+
+  )
+
+
+  leafletProxy(
+
+    "metal_map",
+
+    data = data
+
+  ) %>%
+
+    clearMarkers() %>%
+
+    clearControls() %>%
+
+    addCircleMarkers(
+
+      radius = 6,
+
+      fillColor = pal(concentration),
+
+      fillOpacity = 0.8,
+
+      color = "black",
+
+      weight = 1,
+
+      popup = paste0(
+
+        "<b>Site:</b> ",
+        data$site_id,
+
+        "<br><b>Year:</b> ",
+        data$sample_year,
+
+        "<br><b>Mean ",
+        tolower(metal_name),
+        ":</b> ",
+
+        round(concentration, 4),
+
+        " µg/L"
+
+      )
+
+    ) %>%
+
+    addLegend(
+
+      pal = pal,
+
+      values = if (input$compound == "mean_zinc") {
+
+        zinc_range
+
+      } else {
+
+        copper_range
+
+      },
+
+      title = paste(
+
+        "Mean",
+
+        metal_name,
+
+        "(µg/L)"
+
+      ),
+
+      position = "bottomright"
+
+    )
+
+})
+
 }
 
 shinyApp(ui, server)
 ```
-
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ This creates a gif that you can save
+ the Rshiny app is probably more useful but this can be embedded in powerpoints, etc, and i think it's cool...
+ 
+ 
 ```{r}
-uk <- ne_countries(
-  country = "United Kingdom",
-  returnclass = "sf"
+#read in the hydrometric areas dataset
+hydrometric_areas <- st_read(
+  here("data", "hydrometric_areas_with_coastline", "data", "hyd_areas.shp")
 )
 
-uk <- st_transform(
-  uk,
-  st_crs(chempop_summaries)
-)
-
-
-uk_bbox <- c(
-  xmin = -6,
-  ymin = 49.5,
-  xmax = 2,
-  ymax = 59
-)
-
-roads <- opq(
-  bbox = uk_bbox
-) %>%
-
-  add_osm_feature(
-    key = "highway",
-    value = c(
-      "motorway",
-      "trunk",
-      "primary",
-      "secondary"
-    )
-  ) %>%
-
-  osmdata_sf()
-
-uk_roads <- roads$osm_lines
+hydrometric_areas <- hydrometric_areas %>%
+  st_transform(st_crs(chempop_summaries))
 ```
-
 
 ```{r}
 p <- ggplot() +
 
-  # Roads
+  # Hydrometric areas
   geom_sf(
-    data = uk_roads,
-    aes(
-      geometry = geometry
-    ),
-    linewidth = 0.2,
-    alpha = 0.5
-  ) +
-
-  # Zinc points
-  geom_sf(
-    data = chempop_summaries,
-    aes(
-      colour = mean_zinc
-    ),
-    size = 2,
-    alpha = 0.8
-  ) +
-
-  scale_colour_distiller(
-    palette = "YlOrRd",
-    direction = 1,
-    name = "Mean zinc (µg/L)",
-    limits = range(
-      chempop_summaries$mean_zinc,
-      na.rm = TRUE
-    )
-  ) +
-
-  labs(
-    title = "Mean zinc concentrations: {frame_time}"
-  ) +
-
-  theme_minimal() +
-
-  transition_time(sample_year) +
-
-  ease_aes("linear")
-
-
-animation <- animate(
-  p,
-  fps = 2,
-  duration = 10,
-  width = 1000,
-  height = 700,
-  renderer = gifski_renderer()
-)
-
-animation
-```
-
-
-```{r}
-p <- ggplot() +
-
-  # UK basemap
-  geom_sf(
-    data = uk,
-    fill = "grey95",
-    colour = "grey40"
+    data = hydrometric_areas,
+    fill = "grey80",
+    colour = "white",
+    linewidth = 0.2
   ) +
 
   # Zinc sampling sites
@@ -409,19 +592,27 @@ p <- ggplot() +
 
   ease_aes("linear")
 
-
 animation <- animate(
   p,
-  fps = 2,
-  duration = 10,
-  width = 800,
+  fps = 1,
+  duration = 20,
+  width = 1000,
   height = 700,
   renderer = gifski_renderer()
 )
 
-
 animation
+
+
+
+anim_save(
+  here("figures", "zinc_animation.gif"),
+  animation = animation
+)
 ```
+
+
+
 
 
 
