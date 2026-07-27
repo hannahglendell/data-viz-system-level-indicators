@@ -170,7 +170,7 @@ variable_choices <- c(
 ```{r}
 ui <- fluidPage(
 
-  titlePanel("Chemical Relationships"),
+  titlePanel("Chempop dataset"),
 
   sidebarLayout(
 
@@ -255,7 +255,38 @@ server <- function(input, output, session) {
 
       ) +
 
-      theme_minimal()
+      theme_minimal() +
+
+
+      theme(
+
+        # Axis titles
+        axis.title.x = element_text(
+          size = 18,
+          face = "bold"
+        ),
+
+        axis.title.y = element_text(
+          size = 18,
+          face = "bold"
+        ),
+
+        # Axis numbers/tick labels
+        axis.text.x = element_text(
+          size = 14
+        ),
+
+        axis.text.y = element_text(
+          size = 14
+        ),
+
+        # Optional: make the title larger
+        plot.title = element_text(
+          size = 20,
+          face = "bold"
+        )
+
+      )
 
   })
 
