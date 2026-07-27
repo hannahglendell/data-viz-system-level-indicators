@@ -1,0 +1,169 @@
+---
+title: "hexbins"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(here)
+library(ggplot2)
+library(plotly)
+library(lme4)
+library(sf)
+library(leaflet)
+library(shiny)
+library(gganimate)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggmap)
+library(osmdata)
+```
+
+```{r}
+#read in the dataset
+chempop <- read.csv(here("data", "Chempop", "updated chempop", "river_health_atlas_analysis_ready.csv"))
+
+#colnames(chempop)
+
+```
+
+```{r}
+chempop <- chempop %>%
+  select(assemblage, sample_id, sample_date, sample_year, site_id, bio_site_id, site_label, reporting_area, sample_method, analysis_id,  easting, northing, longitude, latitude, taxon_richness,  zinc_total_mean_6mo, copper_total_mean_6mo) %>% #select the columns that i want
+  mutate(sample_date = as.Date(sample_date)) %>% #make sure date is stored as a date
+  filter(sample_date >= as.Date("2000-01-01")) #filter for dates from 2000 onwards
+
+chempop <- chempop %>%
+  st_as_sf(
+    coords = c("easting", "northing"), #change eastings and northings into a coordinate reference system
+    crs = 27700
+  ) %>%
+  st_transform(4326) %>% #for each chemical, if the concentration is outside the first 95% of that chemical, then give it a value of NA. this is because I want to focus on the first 95% of each chemical, because the outlier values are really difficult to plot and deal with.
+mutate(
+
+    zinc_total_mean_6mo = if_else(
+      zinc_total_mean_6mo >
+        quantile(
+          zinc_total_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      zinc_total_mean_6mo
+    ),
+
+    copper_total_mean_6mo = if_else(
+      copper_total_mean_6mo >
+        quantile(
+          copper_total_mean_6mo,
+          0.95,
+          na.rm = TRUE
+        ),
+      NA_real_,
+      copper_total_mean_6mo
+    ))
+```
+
+```{r}
+chempop_filtered <- chempop %>% 
+  #filter(
+   # zinc_total_mean_6mo <= quantile(zinc_total_mean_6mo, 0.95, na.rm = TRUE),
+    #copper_total_mean_6mo <= quantile(copper_total_mean_6mo, 0.95, na.rm = TRUE)) %>% #focus on the first 95% of data to make it easier to plot
+  select(assemblage, sample_id, sample_date, sample_year, site_id, geometry, zinc_total_mean_6mo, copper_total_mean_6mo) %>%
+  filter(
+    !(is.na(zinc_total_mean_6mo) &
+      is.na(copper_total_mean_6mo)))
+
+
+#calculate the mean concentration for each site for each year
+chempop_summaries <- chempop_filtered %>%
+  group_by(sample_year, site_id) %>%
+  summarise(
+    mean_zinc = mean(zinc_total_mean_6mo, na.rm = TRUE),
+    mean_copper = mean(copper_total_mean_6mo, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+#one site in 2023 is stored as MULTIPOINT instead of POINT and this causes problems later. this fixes it:
+chempop_summaries <- chempop_summaries %>%
+  st_cast("POINT")
+```
+
+```{r}
+#filter for just the year 2000, for now
+chempop_2000 <- chempop_summaries %>%
+  filter(sample_year == "2000")
+
+#transform to british national grid
+chempop_2000_bng <- chempop_2000 %>%
+  st_transform(27700)
+
+#create a hexagonal grid of the bng dataset
+hex_grid <- st_make_grid(
+  chempop_2000_bng,
+  cellsize = 20000, #20km hexagons
+  square = FALSE
+) %>%
+  st_as_sf()
+
+#join the hexagon grid onto the chempop bng dataset
+chempop_hex <- st_join(
+  chempop_2000_bng,
+  hex_grid,
+  join = st_within
+)
+
+#give heat hexagon an id based on the row number
+hex_grid <- hex_grid %>%
+  mutate(hex_id = row_number())
+
+#join the points
+chempop_hex <- st_join(
+  chempop_2000_bng,
+  hex_grid,
+  join = st_within
+)
+
+#summarise
+hex_summary <- chempop_hex %>%
+  st_drop_geometry() %>%
+  group_by(hex_id) %>%
+  summarise(
+    mean_zinc = mean(
+      mean_zinc,
+      na.rm = TRUE
+    ),
+    n_points = n()
+  )
+
+#join the means back onto the hexagons
+hex_grid_summary <- hex_grid %>%
+  left_join(
+    hex_summary,
+    by = "hex_id"
+  )
+```
+
+```{r}
+#plot the hexbin map
+ggplot() +
+
+  geom_sf(
+    data = hex_grid_summary,
+    aes(fill = mean_zinc),
+    colour = NA
+  ) +
+
+  scale_fill_viridis_c(
+    name = "Mean zinc\nconcentration",
+    na.value = "white"
+  ) +
+
+  theme_minimal() +
+
+  labs(
+    title = "Mean zinc concentration by hexagonal grid cell"
+  )
+```
+

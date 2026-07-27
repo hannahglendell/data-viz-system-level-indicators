@@ -30,7 +30,7 @@ chempop <- read.csv(here("data", "Chempop", "updated chempop", "river_health_atl
 
 ```{r}
 chempop <- chempop %>%
-  select(assemblage, sample_id, sample_date, sample_year, site_id, bio_site_id, site_label, sample_method, analysis_id, integration_unit, catchment, water_body, wfd_waterbody_id, reporting_area, easting, northing, longitude, latitude, taxon_richness, abundance_total, taxon_record_count, metric_count, metric_value_count, ept_taxon_richness, zinc_total_mean_6mo, copper_total_mean_6mo, cadmium_mean_6mo, chromium_mean_6mo, lead_mean_6mo, mercury_mean_6mo, nickel_mean_6mo, ph_mean_6mo, water_temperature_c_mean_6mo) %>% #select the columns that i want
+  select(assemblage, sample_id, sample_date, sample_year, site_id, bio_site_id, site_label, reporting_area, sample_method, analysis_id, integration_unit, catchment, water_body, wfd_waterbody_id, reporting_area, easting, northing, longitude, latitude, taxon_richness, abundance_total, taxon_record_count, metric_count, metric_value_count, ept_taxon_richness, zinc_total_mean_6mo, copper_total_mean_6mo, cadmium_mean_6mo, chromium_mean_6mo, lead_mean_6mo, mercury_mean_6mo, nickel_mean_6mo, ph_mean_6mo, water_temperature_c_mean_6mo) %>% #select the columns that i want
   mutate(sample_date = as.Date(sample_date)) %>% #make sure date is stored as a date
   filter(sample_date >= as.Date("2000-01-01")) #filter for dates from 2000 onwards
 
@@ -38,10 +38,10 @@ chempop <- chempop %>%
 
 chempop <- chempop %>%
   st_as_sf(
-    coords = c("easting", "northing"),
+    coords = c("easting", "northing"), #change eastings and northings into a coordinate reference system
     crs = 27700
   ) %>%
-  st_transform(4326) %>% 
+  st_transform(4326) %>% #for each chemical, if the concentration is outside the first 95% of that chemical, then give it a value of NA. this is because I want to focus on the first 95% of each chemical, because the outlier values are really difficult to plot and deal with.
 mutate(
 
     zinc_total_mean_6mo = if_else(
@@ -147,7 +147,7 @@ mutate(
 
 
 ```{r}
-# Variables available for selection
+# Variables that I want to be able to select in the Rshiny app
 variable_choices <- c(
 
   "Zinc" = "zinc_total_mean_6mo",
@@ -168,13 +168,14 @@ variable_choices <- c(
 
 
 ```{r}
+#make the Rshiny app
 ui <- fluidPage(
 
   titlePanel("Chempop dataset"),
 
   sidebarLayout(
 
-    sidebarPanel(
+    sidebarPanel( 
 
       selectInput(
         inputId = "x_variable",
