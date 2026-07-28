@@ -142,6 +142,10 @@ hex_grid_summary <- hex_grid %>%
 ```
 
 ```{r}
+#define the extent of the plot
+bbox <- sf::st_bbox(hex_grid_summary)
+
+#code the user interface
 ui <- fluidPage(
 
   titlePanel("Mean Zinc Concentration"),
@@ -171,6 +175,7 @@ ui <- fluidPage(
 
 )
 
+#make the server
 server <- function(input, output, session) {
 
   output$hexmap <- renderPlot({
@@ -185,12 +190,19 @@ server <- function(input, output, session) {
         aes(fill = mean_zinc),
         colour = NA
       ) +
-
-      scale_fill_viridis_c(
-        name = "Mean zinc\nconcentration",
-        na.value = "white",
-        limits = range(hex_grid_summary$mean_zinc, na.rm = TRUE)
-      ) +
+      
+       coord_sf(
+    xlim = c(bbox["xmin"], bbox["xmax"]),
+    ylim = c(bbox["ymin"], bbox["ymax"]),
+    expand = FALSE
+  ) +
+      
+      scale_fill_distiller(
+  palette = "YlOrRd",
+  direction = 1,
+  limits = range(hex_grid_summary$mean_zinc, na.rm = TRUE),
+  na.value = "white"
+) + 
 
       theme_minimal() +
 
@@ -205,3 +217,4 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
+
