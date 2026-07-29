@@ -37,7 +37,7 @@ site_sheets <- excel_sheets(file) %>%
 
 
 ```{r}
-#get all data from a specific site
+#get all data from a specific site - site WAV120
 
 #specify which columns i want
 cols <- c(
@@ -90,15 +90,6 @@ wav120_yearly_means <- wav120_data %>%
       Compound_Name
     ))
 
-#now try with median values instead
-#wav120_yearly_medians <- wav120_data %>%
-#  mutate(Year = year(Sample_datetime)) %>%
- # group_by(Year, Compound_Name) %>%
- # summarise(
- #   median_concentration = median(Concentration, na.rm = TRUE),
- #   n_samples = n(),
- #   .groups = "drop"
- # )
 ```
 
 
@@ -124,7 +115,7 @@ heatmap1 <- ggplot(
     y = NULL,
     fill = expression(Concentration~"("*mu*"g L"^{-1}*")")
   ) +
-  my_theme() +
+  my_theme() + #code for my_theme can be found in a separate script
   theme(
     axis.title.x = element_text(size = 20, face = "bold"),
     axis.title.y = element_text(size = 20, face = "bold"),
@@ -134,6 +125,7 @@ heatmap1 <- ggplot(
 
 heatmap1
 
+#save the heatmap in the figures folder
 ggsave(
   here("figures", "heatmap1.png"),
   plot = heatmap1,
@@ -191,6 +183,7 @@ heatmap2 <- ggplot(wav120_scaled_complete,
 
 heatmap2
 
+#save the heatmap in the figures folder
 ggsave(
   here("figures", "heatmap2.png"),
   plot = heatmap2,
@@ -262,6 +255,7 @@ heatmap3 <- ggplot(wav120_yearly_means,
 
 heatmap3
 
+#save the heatmap in the figures folder
 ggsave(
   here("figures", "heatmap3.png"),
   plot = heatmap3,

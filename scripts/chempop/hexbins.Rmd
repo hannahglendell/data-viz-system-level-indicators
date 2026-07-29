@@ -7,7 +7,7 @@ output: html_document
 library(tidyverse)
 library(dplyr)
 library(here)
-library(ggplot2)
+library(ggplot2) 
 library(plotly)
 library(lme4)
 library(sf)
@@ -98,7 +98,7 @@ chempop_bng <- chempop_summaries %>%
 #create a hexagonal grid of the bng dataset
 hex_grid <- st_make_grid(
   chempop_bng,
-  cellsize = 20000, #20km hexagons
+  cellsize = 20000, #20km hexagons, can change this to suit
   square = FALSE
 ) %>%
   st_as_sf()
@@ -161,7 +161,7 @@ ui <- fluidPage(
         max = max(hex_grid_summary$sample_year, na.rm = TRUE),
         value = min(hex_grid_summary$sample_year, na.rm = TRUE),
         step = 1,
-        animate = animationOptions(interval = 1000, loop = TRUE),
+        animate = animationOptions(interval = 1000, loop = TRUE), #adds the option to play the animation
         sep = ""
       )
 
@@ -188,16 +188,16 @@ server <- function(input, output, session) {
       geom_sf(
         data = hex_year,
         aes(fill = mean_zinc),
-        colour = NA
+        colour = NA #removes the outlines around the hexagons
       ) +
       
        coord_sf(
-    xlim = c(bbox["xmin"], bbox["xmax"]),
+    xlim = c(bbox["xmin"], bbox["xmax"]), #defines the X and Y limits of the plot
     ylim = c(bbox["ymin"], bbox["ymax"]),
     expand = FALSE
   ) +
       
-      scale_fill_distiller(
+      scale_fill_distiller( #colour scheme
   palette = "YlOrRd",
   direction = 1,
   limits = range(hex_grid_summary$mean_zinc, na.rm = TRUE),
@@ -216,5 +216,67 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+```
+
+
+saving it as an animated GIF!
+```{r}
+p <- ggplot() +
+  geom_sf(
+    data = hex_grid_summary,
+    aes(fill = mean_zinc),
+    colour = NA
+  ) +
+  coord_sf(
+    xlim = c(bbox["xmin"], bbox["xmax"]),
+    ylim = c(bbox["ymin"], bbox["ymax"]),
+    expand = FALSE
+  ) +
+  scale_fill_distiller(
+    palette = "YlOrRd",
+    direction = 1,
+    limits = range(hex_grid_summary$mean_zinc, na.rm = TRUE),
+    na.value = "white"
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Mean zinc concentration {closest_state}",
+    fill = expression("Mean zinc ("*mu*"g/L)")
+  ) +
+  transition_states(
+  sample_year,
+  transition_length = 0,
+  state_length = 0.5
+) + 
+  theme(
+     plot.title = element_text(
+      size = 24,
+      face = "bold",
+      hjust = 0.5), 
+     
+  legend.title = element_text(
+    size = 24,
+    face = "bold"),
+  
+  legend.text = element_text(
+    size = 18),
+  legend.key.height = unit(1.5, "cm"),
+  legend.key.width = unit(0.6, "cm")
+)
+
+animation <- animate(
+  p,
+  fps = 3, #controls the speed of the animation
+  width = 900,
+  height = 700,
+  renderer = gifski_renderer()
+)
+
+
+
+anim_save(
+  here("figures", "hexbin_animation.gif"),
+  animation = animation
+)
 ```
 

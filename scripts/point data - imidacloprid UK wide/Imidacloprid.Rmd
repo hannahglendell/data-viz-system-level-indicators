@@ -37,8 +37,6 @@ imidacloprid$year <- as.integer(imidacloprid$year)
 #store datetime as datetime
 imidacloprid$Sample_datetime <- ymd_hms(imidacloprid$Sample_datetime)
 
-imidacloprid %>%
-  summarise(n_unique = n_distinct(Sample_Site_ID))
 
 ```
 
@@ -74,7 +72,7 @@ imidacloprid_sf <- imidacloprid_sf %>%
 ```
 
 ############################################
-legend where the size of the points shows the number of samples at each site
+legend where the size of the points shows the number of samples at each site (option 1 on powerpoint)
 ```{r}
 #to adjust the size of the point by how well sampled it is, need to count the number of obersvations at each site.
 site_counts <- imidacloprid_sf %>%
@@ -226,7 +224,7 @@ server <- function(input, output, session) {
 
   req(selected_site())
 
-  p_rain <- plot_ly(
+  p_rain <- plot_ly( #makes the rain plot
     data = rain_data(),
     x = ~date,
     y = ~rainfall,
@@ -243,7 +241,7 @@ server <- function(input, output, session) {
       yaxis = list(title = "Rainfall (mm)")
     )
 
-  p_conc <- plot_ly(
+  p_conc <- plot_ly( #make the concentration plot 
     data = site_data(),
     x = ~Sample_datetime,
     y = ~Concentration,
@@ -267,7 +265,7 @@ server <- function(input, output, session) {
       )
     )
 
-  subplot(
+  subplot( #this adds the join x-axis scrollbar
     p_rain,
     p_conc,
     nrows = 2,
@@ -354,7 +352,7 @@ pal <- colorFactor(
 
 
 ```{r}
-#size legend
+#size legend in HTML
 legend_items_size <- paste0(
   sprintf(
     '<div style="display:flex;align-items:center;margin-bottom:6px;">
@@ -410,12 +408,11 @@ legend_html_colour <- paste0(
 ```
 
 
-this app has the new legend and just concentration, no rainfall
+this app has the new legend and just concentration, no rainfall data is plotted
 
 ```{r} 
 
-#thought: could I colour the points based on whether imidacloprid concentration is above or below a safe threshold?
-#or maybe add a line to the timseries graph, to show this threshold?
+
 ui <- fluidPage(
 
   titlePanel("Imidacloprid Concentrations"),
@@ -525,9 +522,12 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
+
+
+
 INTEGRATING VISUALISATIONS TOGETHER
-trying out the new legend along with the rainfall plotted
-trying out with two check boxes
+this has the legend by colour and size, AND rainfall data, AND concentration data
+Also the option to plot two exposure thresholds
 ```{r}  
 
 ui <- fluidPage(

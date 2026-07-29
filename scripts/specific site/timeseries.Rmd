@@ -89,7 +89,7 @@ ui <- fluidPage(
 
     sidebarPanel(
 
-      checkboxGroupInput(
+      checkboxGroupInput( #checkboxes to pick which chemicals to plot
         inputId = "compound",
         label = "Select compounds:",
         choices = sort(unique(wav120_data$Compound_Name)),
@@ -124,7 +124,7 @@ server <- function(input, output, session) {
         y = Concentration,
         colour = Compound_Name,
         group = Compound_Name,
-        text = paste0(
+        text = paste0( #displays the compound name, date and concentration when you hover over a point
           "<b>", Compound_Name, "</b>",
           "<br>Date: ", Sample_datetime,
           "<br>Concentration: ", round(Concentration, 3), " µg/L"
@@ -166,6 +166,7 @@ showtext_auto(enable = TRUE)
 ```
 
 ```{r}
+#make the plot in ggplot2 
 p1 <- wav120_data %>% 
   ggplot() +
   geom_point(data=wav120_data %>% 
@@ -202,6 +203,7 @@ p1 <- wav120_data %>%
 
 p1
 
+#save the plot in the figures folder
 ggsave(
   here("figures", "timeseries at specific site.png"),
   plot = p1,
