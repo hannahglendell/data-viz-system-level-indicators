@@ -166,7 +166,7 @@ variable_choices <- c(
 )
 ```
 
-
+this makes an app where you can pick the x and y variables and then plot a regression line between them
 ```{r}
 #make the Rshiny app
 ui <- fluidPage(
